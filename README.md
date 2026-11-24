@@ -20,6 +20,10 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   Einheiten eine Krankmeldung ersetzt, Teilnehmer (samt „dabei seit") und Ausgaben
   aus der Kasse. Alles frei konfigurierbar.
 - **Ohne Profil** – Das Handy merkt sich einmalig, wer du bist. Kein Login, kein Konto.
+- **Installation** – Beim ersten Öffnen bietet die App sich selbst zur Installation an:
+  auf Android über den nativen Dialog, auf dem iPhone mit der Anleitung für Safari.
+- **Gruppen-PIN** – Ist das Secret `PIN` gesetzt, fragt die App einmal pro Gerät danach.
+  Groß- und Kleinschreibung spielt keine Rolle.
 
 ## Aufbau
 
@@ -42,7 +46,7 @@ cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
 npx wrangler dev
 ```
 
-Tests gegen den laufenden `wrangler dev` (105 Prüfungen):
+Tests gegen den laufenden `wrangler dev` (125 Prüfungen):
 
 ```bash
 npm test
@@ -71,7 +75,7 @@ node -e 'const{webcrypto:c}=require("crypto");const b=x=>Buffer.from(x).toString
 ```
 
 Optional lässt sich die Gruppe mit einer gemeinsamen PIN schützen:
-`npx wrangler secret put PIN`.
+`npx wrangler secret put PIN`. Die Tests brauchen sie dann als `PIN=… npm test`.
 
 ## Hinweise
 

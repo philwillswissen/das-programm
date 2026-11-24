@@ -6,8 +6,9 @@ const BASE = process.env.BASE || "http://127.0.0.1:8787";
 let pass = 0, fail = 0;
 const ok = (x, m) => (x ? (pass++, console.log("  ✓ " + m)) : (fail++, console.log("  ✗ " + m)));
 const b64u = { enc: b => Buffer.from(b).toString("base64url"), dec: s => new Uint8Array(Buffer.from(s, "base64url")) };
+const PIN = process.env.PIN || "";
 const api = (p, method = "GET", body) =>
-  fetch(BASE + "/api/" + p, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined })
+  fetch(BASE + "/api/" + p, { method, headers: { "content-type": "application/json", "x-pin": PIN }, body: body ? JSON.stringify(body) : undefined })
     .then(async r => ({ status: r.status, data: await r.json().catch(() => null) }));
 
 const cat = (...p) => { const o = new Uint8Array(p.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of p) { o.set(x, i); i += x.length; } return o; };

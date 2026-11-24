@@ -107,7 +107,8 @@ export default {
       return serveAsset(path);
     }
     if (!env.DB) return json({ error: "Keine D1-Datenbank gebunden (wrangler.toml)." }, 500);
-    if (env.PIN && req.headers.get("x-pin") !== env.PIN) return json({ error: "pin" }, 401);
+    const pinOf = v => String(v || "").trim().toLowerCase();
+    if (env.PIN && pinOf(req.headers.get("x-pin")) !== pinOf(env.PIN)) return json({ error: "pin" }, 401);
 
     const db = env.DB;
     try {

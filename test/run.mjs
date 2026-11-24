@@ -3,9 +3,10 @@ const BASE = process.env.BASE || "http://127.0.0.1:8787";
 let pass = 0, fail = 0;
 const ok = (c, m) => (c ? (pass++, console.log("  ✓ " + m)) : (fail++, console.log("  ✗ " + m)));
 
+const PIN = process.env.PIN || "";
 const call = async (p, method = "GET", body) => {
   const r = await fetch(BASE + "/api/" + p, {
-    method, headers: { "content-type": "application/json" },
+    method, headers: { "content-type": "application/json", "x-pin": PIN },
     body: body ? JSON.stringify(body) : undefined,
   });
   let data = null;
@@ -63,9 +64,9 @@ const tiny = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ
 const ep = await call("entry", "POST", { member_id: anna, date: today, kind: "workout", photo: tiny, device: "devA" });
 const withPhoto = (await state()).entries.find(e => e.id === ep.data.id);
 ok(!!withPhoto.hasPhoto, "Foto-Flag gesetzt");
-const photoRes = await fetch(BASE + "/api/photo/" + ep.data.id);
+const photoRes = await fetch(BASE + "/api/photo/" + ep.data.id, { headers: { "x-pin": PIN } });
 ok((await photoRes.text()) === tiny, "Foto wird unverändert zurückgeliefert");
-ok((await fetch(BASE + "/api/photo/999999")).status === 404, "unbekanntes Foto -> 404");
+ok((await fetch(BASE + "/api/photo/999999", { headers: { "x-pin": PIN } })).status === 404, "unbekanntes Foto -> 404");
 ok((await call("entry", "POST", { member_id: anna, date: today, kind: "workout", photo: "data:image/jpeg;base64," + "A".repeat(800000) })).status === 413, "zu großes Foto abgelehnt");
 await call("entry/" + ep.data.id, "DELETE");
 
@@ -83,12 +84,21 @@ ok((await call("push/unsubscribe", "POST", { device: "devB" })).status === 200, 
 
 console.log("\n== Aufräumen / Fehlerfälle ==");
 ok((await call("nichtda")).status === 404, "unbekannter Endpunkt -> 404");
-const r = await fetch(BASE + "/api/entry", { method: "POST", headers: { "content-type": "application/json" }, body: "{kaputt" });
+const r = await fetch(BASE + "/api/entry", { method: "POST", headers: { "content-type": "application/json", "x-pin": PIN }, body: "{kaputt" });
 ok(r.status === 400, "kaputter JSON-Body -> 400");
 await call("member/" + ben, "DELETE");
 s = await state();
 ok(!s.members.some(m => m.id === ben), "Teilnehmer gelöscht");
 ok(!s.entries.some(e => e.member_id === ben), "Einträge des Teilnehmers mit gelöscht");
+
+if (PIN) {
+  console.log("\n== Gruppen-PIN ==");
+  const noPin = await fetch(BASE + "/api/state", { headers: { "x-pin": "" } });
+  ok(noPin.status === 401, "ohne PIN kein Zugriff auf die Daten");
+  const wrongPin = await fetch(BASE + "/api/state", { headers: { "x-pin": "falsch" } });
+  ok(wrongPin.status === 401, "falsche PIN wird abgewiesen");
+  ok((await fetch(BASE + "/")).status === 200, "die App selbst lädt trotzdem (PIN-Abfrage im Browser)");
+}
 
 console.log("\n== Statisches / PWA ==");
 for (const [p, needle] of [["/", "Das Programm"], ["/manifest.json", "Das Programm"], ["/sw.js", "notificationclick"], ["/icon-192.png", null]]) {

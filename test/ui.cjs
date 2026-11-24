@@ -10,8 +10,9 @@ const waitFor = async (fn, ms = 8000) => {
   const end = Date.now() + ms;
   for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) return v; await sleep(300); }
 };
+const PIN = process.env.PIN || "";
 const api = (p, method = "GET", body) =>
-  fetch(BASE + "/api/" + p, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined })
+  fetch(BASE + "/api/" + p, { method, headers: { "content-type": "application/json", "x-pin": PIN }, body: body ? JSON.stringify(body) : undefined })
     .then(r => r.json());
 
 (async () => {
@@ -28,6 +29,8 @@ const api = (p, method = "GET", body) =>
     ...(proxy && !BASE.includes("127.0.0.1") ? { proxy: { server: proxy } } : {}),
   });
   const ctx = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE", timezoneId: "Europe/Berlin" });
+  await ctx.addInitScript(() => { try { localStorage.installLater = String(Date.now()); } catch {} });
+  if (PIN) await ctx.addInitScript(v => { localStorage.pin = v; window.PIN_VALUE = v; }, PIN);
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
@@ -37,6 +40,85 @@ const api = (p, method = "GET", body) =>
     await page.click(`nav a[href="#${hash}"]`);
     await page.waitForSelector(sel, { timeout: 15000 });
   };
+
+  if (PIN) {
+    console.log("\n== Gruppen-PIN ==");
+    const anon = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });
+    const ap = await anon.newPage();
+    await ap.goto(BASE, { waitUntil: "domcontentloaded" });
+    await ap.waitForSelector("#pinIn");
+    ok(await ap.isVisible("text=Gruppen-PIN"), "ohne PIN erscheint der PIN-Bildschirm statt der App");
+    await ap.fill("#pinIn", "falsch");
+    await ap.click('button:has-text("Weiter")');
+    await ap.waitForSelector("text=Die PIN stimmt nicht");
+    ok(true, "falsche PIN wird abgewiesen und erneut gefragt");
+    await ap.fill("#pinIn", PIN);
+    await ap.click('button:has-text("Weiter")');
+    await ap.waitForSelector('h2:has-text("Los geht\'s"), h2:has-text("Kassenstand")');
+    ok(true, "richtige PIN schaltet die App frei");
+    ok(await ap.evaluate(() => localStorage.pin) === PIN, "Gerät merkt sich die PIN");
+    const low = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });
+    const lp = await low.newPage();
+    await lp.goto(BASE, { waitUntil: "domcontentloaded" });
+    await lp.waitForSelector("#pinIn");
+    ok(!(await lp.isVisible("nav")), "hinter dem PIN-Schirm ist die Navigation ausgeblendet");
+    await lp.fill("#pinIn", PIN.toLowerCase());
+    await lp.click('button:has-text("Weiter")');
+    await lp.waitForSelector("nav", { state: "visible", timeout: 15000 });
+    ok(true, "Klein geschriebene PIN wird genauso akzeptiert");
+    await low.close();
+    await anon.close();
+  }
+
+  console.log("\n== Installation ==");
+  const ictx = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });
+  if (PIN) await ictx.addInitScript(v => { localStorage.pin = v; }, PIN);
+  const ip = await ictx.newPage();
+  await ip.goto(BASE, { waitUntil: "domcontentloaded" });
+  await ip.waitForSelector("#install.on", { timeout: 15000 });
+  ok(true, "Installationshinweis poppt von selbst auf");
+  const inst = await ip.textContent("#install");
+  ok(inst.includes("Das Programm installieren"), "Dialog nennt die App");
+  ok(inst.includes("Zum Home-Bildschirm"), "auf dem iPhone steht die Safari-Anleitung");
+  ok(await ip.isVisible("#install img"), "Dialog zeigt das App-Icon");
+  await ip.click('#install button:has-text("Verstanden")');
+  await ip.waitForFunction(() => !document.getElementById("install").classList.contains("on"));
+  ok(true, "Dialog lässt sich schließen");
+  ok(await ip.evaluate(() => !!localStorage.installLater), "Zeitpunkt wird gemerkt (Wiedervorlage nach einer Woche)");
+  await ip.reload({ waitUntil: "domcontentloaded" });
+  await ip.waitForTimeout(2500);
+  ok(!(await ip.evaluate(() => document.getElementById("install").classList.contains("on"))),
+     "nach „Verstanden“ kommt er nicht sofort wieder");
+  await ip.goto(BASE + "/#set", { waitUntil: "domcontentloaded" });
+  await ip.waitForSelector('button:has-text("Installieren")');
+  await ip.click('button:has-text("Installieren")');
+  await ip.waitForSelector("#install.on");
+  ok(true, "über die Einstellungen jederzeit wieder aufrufbar");
+  await ictx.close();
+
+  // Android/Chrome: der native Dialog laesst sich im Testbrowser nicht ausloesen,
+  // deshalb das Event nachstellen und den Weg bis zum prompt()-Aufruf pruefen.
+  const actx = await browser.newContext({ ...devices["Pixel 7"], locale: "de-DE" });
+  if (PIN) await actx.addInitScript(v => { localStorage.pin = v; }, PIN);
+  const ap2 = await actx.newPage();
+  await ap2.goto(BASE, { waitUntil: "domcontentloaded" });
+  await ap2.waitForSelector("nav");
+  await ap2.evaluate(() => {
+    window.__prompted = 0;
+    const e = new Event("beforeinstallprompt");
+    e.prompt = () => { window.__prompted++; };
+    e.userChoice = Promise.resolve({ outcome: "accepted" });
+    dispatchEvent(e);
+  });
+  await ap2.waitForSelector("#install.on", { timeout: 5000 });
+  ok((await ap2.textContent("#install")).includes("Jetzt installieren"),
+     "Android: Dialog bietet die echte Installation an");
+  await ap2.click('#install button:has-text("Jetzt installieren")');
+  await ap2.waitForFunction(() => window.__prompted === 1);
+  ok(true, "Klick löst den nativen Installationsdialog aus");
+  await ap2.waitForFunction(() => !document.getElementById("install").classList.contains("on"));
+  ok(true, "eigener Dialog verschwindet dabei");
+  await actx.close();
 
   console.log("\n== Erststart ==");
   await page.goto(BASE, { waitUntil: "networkidle" });
