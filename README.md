@@ -61,12 +61,28 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 Oberfläche und Icons liegen im Worker-Bundle, es gibt also nur ein Deployment-Artefakt
 (ca. 105 KB).
 
+## Wo getestet wird
+
+Die veroeffentlichte Datenbank enthaelt echte Eintraege und wird von Tests nie
+angefasst. Dafuer gibt es drei getrennte Ziele:
+
+| Ziel | Datenbank | Schreiben | Befehl |
+|---|---|---|---|
+| lokal (`wrangler dev`) | lokale Kopie | ja | `npm test` |
+| Probeumgebung | `sportkasse-test` | ja | `npm run test:staging` |
+| veroeffentlicht | `sportkasse` | **nein** | `npm run test:live` |
+
+Jede schreibende Suite prueft ihr Ziel über `scripts/guard.cjs` und bricht ab,
+sobald es die veroeffentlichte Instanz ist. Direkte SQL-Befehle laufen nur ueber
+`npm run db`, das gegen `sportkasse` ausschliesslich Abfragen zulaesst.
+`npm run deploy` legt vorher automatisch eine Sicherung in `backups/` an.
+
 ## Entwicklung
 
 ```bash
 npm install
 cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
-npx wrangler dev
+npm run dev
 ```
 
 Tests gegen den laufenden `wrangler dev` (272 Prüfungen):

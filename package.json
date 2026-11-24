@@ -5,10 +5,15 @@
   "type": "module",
   "description": "Das Programm – Sport-Challenge mit gemeinsamer Kasse (PWA auf Cloudflare Workers + D1)",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled",
     "test": "node test/all.cjs",
-    "db:console": "wrangler d1 execute sportkasse --remote --command 'select * from members'"
+    "test:staging": "ALLOW_STAGING_WIPE=1 BASE=https://das-programm-test.phil89.workers.dev node --use-env-proxy test/all.cjs",
+    "test:live": "BASE=https://das-programm.phil89.workers.dev node --use-env-proxy test/live.cjs",
+    "deploy": "npm run backup && wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "backup": "node scripts/backup.cjs",
+    "db": "node scripts/db.cjs",
+    "db:staging": "node scripts/db.cjs --staging"
   },
   "devDependencies": {
     "wrangler": "^4.46.0"

@@ -26,6 +26,24 @@ crons = ["0 * * * *"]   # stuendlich; wer gerade dran ist, entscheidet der Worke
 [observability]
 enabled = true
 
+# ---------------------------------------------------------------------------
+# Probeumgebung. Eigener Worker, eigene Datenbank - hier darf getestet werden.
+# Die veroeffentlichte Datenbank oben wird von Tests nie angefasst.
+#   npm run deploy:staging
+#   npm run test:staging
+# ---------------------------------------------------------------------------
+[env.staging]
+name = "das-programm-test"
+workers_dev = true
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "sportkasse-test"
+database_id = "b6b2560a-f2d7-4d90-9fb5-5e9a1fb9ba8b"
+
+[env.staging.observability]
+enabled = true
+
 # Secrets (nicht hier eintragen):
 #   npx wrangler secret put VAPID_PUBLIC
 #   npx wrangler secret put VAPID_PRIVATE

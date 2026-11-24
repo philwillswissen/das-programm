@@ -2,11 +2,7 @@
 const { settle } = require("../stats.js");
 const { chromium, devices } = require("/opt/node-tools/node_modules/playwright");
 const BASE = process.env.BASE || "http://127.0.0.1:8787";
-if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(BASE) && process.env.ALLOW_LIVE_WIPE !== "1") {
-  console.error("\nDieser Test leert die Datenbank und laeuft deshalb nur gegen einen lokalen Server.");
-  console.error("BASE ist " + BASE + " - abgebrochen.\n");
-  process.exit(2);
-}
+require("../scripts/guard.cjs").requireScratchTarget(BASE);
 
 const PIN = process.env.PIN || "";
 let pass = 0, fail = 0;
