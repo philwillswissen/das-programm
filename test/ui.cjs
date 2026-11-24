@@ -318,6 +318,40 @@ const api = (p, method = "GET", body) =>
   await go("set", 'h2:has-text("Benachrichtigungen")');
   ok((await page.textContent("body")).includes("Push auf diesem Gerät"), "Push-Schalter pro Gerät vorhanden");
 
+  console.log("\n== Eingaben überleben einen Tabwechsel ==");
+  const awayAndBack = async () => {
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { value: false, configurable: true });
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(900);
+  };
+
+  await go("set", "#icuId");
+  await page.fill("#icuId", "i123456");
+  await awayAndBack();
+  ok(await page.inputValue("#icuId") === "i123456", "Athleten-ID bleibt stehen, wenn man kurz in einen anderen Tab geht");
+
+  await go("add", "#note");
+  await page.fill("#note", "halb getippter Kommentar");
+  await page.fill("#sport", "Bouldern");
+  await awayAndBack();
+  ok(await page.inputValue("#note") === "halb getippter Kommentar", "angefangener Kommentar bleibt stehen");
+  ok(await page.inputValue("#sport") === "Bouldern", "angefangene Sportart bleibt stehen");
+
+  await go("home", ".hero");
+  const before = await page.evaluate(() => document.querySelector("#app").innerHTML.length);
+  await awayAndBack();
+  ok(await page.evaluate(() => !!document.querySelector(".hero")), "auf der Startseite wird weiterhin frisch geladen");
+  ok(before > 0, "und die Ansicht steht danach noch");
+
   console.log("\n== Robustheit ==");
   await page.goto(BASE + "/#unsinn", { waitUntil: "networkidle" });
   await page.waitForTimeout(500);

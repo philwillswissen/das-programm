@@ -985,7 +985,15 @@ function render() {
 }
 addEventListener("hashchange", render);
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
-addEventListener("visibilitychange", () => { if (!document.hidden && D) load(); });
+// Beim Zurückkommen frisch laden - aber nicht, während jemand ein Formular
+// ausfüllt. Sonst ist die halb getippte Eingabe weg, nur weil man kurz in
+// einem anderen Tab den Schlüssel kopiert hat.
+const currentPage = () => (views[location.hash.slice(1)] ? location.hash.slice(1) : "home");
+addEventListener("visibilitychange", () => {
+  if (document.hidden || !D) return;
+  if (currentPage() === "add" || currentPage() === "set") return;
+  load();
+});
 if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => { if (e.data === "refresh") load(); });
 load();
 </script>
