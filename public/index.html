@@ -29,7 +29,7 @@ body{
 main{max-width:620px;margin:0 auto;padding:0 14px}
 header{display:flex;align-items:center;gap:10px;margin:4px 0 14px}
 header h1{font-size:19px;margin:0;letter-spacing:-.01em}
-header .dot{width:26px;height:26px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700}
+header .dot{width:30px;height:30px;border-radius:9px;display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 h2{margin:0 0 10px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em}
 .big{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
@@ -861,7 +861,7 @@ function render() {
   if (!D) return;
   const h = location.hash.slice(1);
   const page = views[h] ? h : "home";
-  $("#app").innerHTML = `<header><div class="dot">P</div><h1>Das Programm</h1></header>` + views[page]();
+  $("#app").innerHTML = `<header><img class="dot" src="/icon.svg" alt=""><h1>Das Programm</h1></header>` + views[page]();
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
   if (page === "add") { setKind(kind); paintCrew(); const w = $("#who"); if (w) w.onchange = paintCrew; }
   document.querySelectorAll("img[data-photo]").forEach(async img => {
