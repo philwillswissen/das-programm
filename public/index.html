@@ -795,6 +795,33 @@ function viewSet() {
          <div class="hint">Du bekommst eine Nachricht, wenn jemand anderes einen Eintrag macht – nicht für deine eigenen Einträge von diesem Gerät.</div>`}
   </div>
 
+  <div class="card"><h2>Automatisch eintragen</h2>
+    ${!me ? '<div class="sub">Wähle oben erst aus, wer du bist.</div>' : (() => {
+      const link = (D.links || []).find(l => l.member_id === me);
+      if (link) return `<div class="flex"><div><b>Verbunden${link.name ? " als " + esc(link.name) : ""}</b>
+        <div class="sub">${link.last_check ? "zuletzt nachgesehen: " + new Date(link.last_check).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nicht nachgesehen"}</div></div>
+        <button class="x" onclick="unlinkIcu()">✕</button></div>
+        <button class="ghost" onclick="syncIcu()">Jetzt nachsehen</button>
+        <div id="syncInfo" class="sub"></div>
+        <div class="hint">Jede neue Einheit wird stündlich abgeholt und hier eingetragen – du musst nichts mehr tun.</div>`;
+      return `<div class="sub">Deine Einheiten aus Strava, Garmin, Wahoo &amp; Co. können sich von selbst eintragen.
+        Dafür brauchst du ein kostenloses Konto bei <b>intervals.icu</b>, das deine Einheiten ohnehin schon einsammelt.</div>
+        <ol style="font-size:14px;line-height:1.7;padding-left:20px">
+          <li>Auf <b>intervals.icu</b> anmelden und deinen Sportdienst dort verbinden</li>
+          <li>Dort auf <b>Settings</b> gehen</li>
+          <li>Ganz unten unter <b>Developer Settings</b> stehen <b>Athlete ID</b> und <b>API Key</b></li>
+        </ol>
+        <label>Athlete ID</label><input id="icuId" placeholder="i123456" autocomplete="off">
+        <label>API Key</label><input id="icuKey" type="password" placeholder="wird nur hier gespeichert" autocomplete="off">
+        <button onclick="linkIcu()">Verbinden</button>
+        <div class="hint">Der Schlüssel liegt nur in der Datenbank dieser App und wird nie angezeigt.
+          Zum Lösen genügt ein Tipp aufs ✕.</div>`;
+    })()}
+    ${(D.links || []).length ? `<label>Einheiten erst ab … Minuten übernehmen</label>
+      <div class="row"><input id="importMin" type="number" min="0" max="600" value="${s.importMin}">
+        <button class="s" onclick="saveImportMin()">Merken</button></div>` : ""}
+  </div>
+
   <div class="card"><h2>Motivation</h2>
     <div class="flex"><div><b>Anstupser bei Rückstand</b>
       <div class="sub">Mitte der Woche, wenn noch nichts steht – und zum Wochenende, wenn noch etwas fehlt.</div></div>
@@ -842,6 +869,34 @@ const saveSettings = guard(async () => {
   });
   toast("Gespeichert."); await load();
 });
+const linkIcu = guard(async () => {
+  const athlete_id = $("#icuId").value.trim(), api_key = $("#icuKey").value.trim();
+  if (!athlete_id || !api_key) return toast("Beide Felder ausfüllen.");
+  toast("Prüfe …");
+  const r = await (await api("link", "POST", { member_id: me, athlete_id, api_key })).json();
+  toast(r.imported?.length ? r.imported.length + " Einheiten übernommen." : "Verbunden.");
+  await load();
+});
+const unlinkIcu = guard(async () => {
+  if (!confirm("Verbindung lösen? Bereits übernommene Einheiten bleiben stehen.")) return;
+  await api("link/remove", "POST", { member_id: me });
+  await load();
+});
+const syncIcu = guard(async () => {
+  const box = $("#syncInfo");
+  if (box) box.textContent = "Sehe nach …";
+  const r = await (await api("link/sync", "POST", { member_id: me })).json();
+  if (box) box.textContent = r.imported.length
+    ? r.imported.length + " neue Einheit(en) übernommen."
+    : "Nichts Neues.";
+  if (r.imported.length) await load();
+});
+const saveImportMin = guard(async () => {
+  await api("settings", "POST", { importMin: +$("#importMin").value });
+  toast("Gemerkt.");
+  await load();
+});
+
 const toggleBonus = guard(async () => {
   await api("settings", "POST", { bonus: !D.settings.bonus });
   await load();

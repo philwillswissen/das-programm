@@ -1,6 +1,7 @@
 import { sendPush, b64u } from "./push.js";
 import { localParts, slotFor, favourites, buildMessage, geocode, forecast, behindHint } from "./nudge.js";
 import { settle } from "./stats.js";
+import * as icu from "./icu.js";
 import indexHtml from "./public/index.html";
 import swJs from "./public/sw.js";
 import manifestJson from "./public/manifest.json";
@@ -70,9 +71,11 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS plans(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, sport TEXT, date TEXT NOT NULL, time TEXT, note TEXT, created TEXT)",
   "CREATE TABLE IF NOT EXISTS plan_joins(plan_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(plan_id, member_id))",
   "CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER, date TEXT NOT NULL, kind TEXT, text TEXT, created TEXT)",
+  // Eine Verbindung je Person. Der Schluessel verlaesst die Datenbank nie.
+  "CREATE TABLE IF NOT EXISTS links(member_id INTEGER PRIMARY KEY, athlete_id TEXT NOT NULL, api_key TEXT NOT NULL, name TEXT, last_check TEXT, connected TEXT)",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "", importMin: 20 };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
 
@@ -88,7 +91,12 @@ const clean = (s, max) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, m
 
 // Nachträgliche Spalten: SQLite kennt kein ADD COLUMN IF NOT EXISTS,
 // ein zweiter Versuch scheitert also und wird bewusst verschluckt.
-const ALTERS = ["ALTER TABLE entries ADD COLUMN sport TEXT", "ALTER TABLE entries ADD COLUMN group_id TEXT"];
+const ALTERS = [
+  "ALTER TABLE entries ADD COLUMN sport TEXT",
+  "ALTER TABLE entries ADD COLUMN group_id TEXT",
+  "ALTER TABLE entries ADD COLUMN ext_id TEXT",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext_id) WHERE ext_id IS NOT NULL",
+];
 
 let migrated;
 async function migrate(db) {
@@ -201,6 +209,8 @@ export default {
     ctx.waitUntil(
       migrate(env.DB)
         .then(async () => {
+          const found = await syncAll(env, env.DB, null);
+          if (found.length) console.log("Importiert", JSON.stringify(found));
           const sent = await runNudges(env, env.DB, when);
           if (sent.length) console.log("Nudges", JSON.stringify(sent.map((x) => x.member + ": " + x.body)));
           const settings = await env.DB.prepare("SELECT v FROM settings WHERE k='tz'").first().catch(() => null);
@@ -250,7 +260,7 @@ export default {
             settings[row.k] = JSON.parse(row.v);
           } catch {}
         }
-        const [members, entries, expenses, plans, joins, events] = await Promise.all([
+        const [members, entries, expenses, plans, joins, events, links] = await Promise.all([
           all("SELECT id,name,joined FROM members ORDER BY id"),
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
@@ -259,6 +269,7 @@ export default {
           all("SELECT id,member_id,sport,date,time,note FROM plans WHERE date >= date('now','-1 day') ORDER BY date, time"),
           all("SELECT plan_id,member_id FROM plan_joins"),
           all("SELECT id,member_id,date,kind,text FROM events ORDER BY date DESC, id DESC LIMIT 60"),
+          all("SELECT member_id,name,last_check,connected FROM links"),
         ]);
         return json({
           settings,
@@ -268,6 +279,7 @@ export default {
           plans: plans.map((p) => ({ ...p, joined: joins.filter((j) => j.plan_id === p.id).map((j) => j.member_id) })),
           events,
           stats: settle({ members, entries, settings, today: today() }),
+          links,
           vapidPublicKey: env.VAPID_PUBLIC || null,
         });
       }
@@ -363,6 +375,7 @@ export default {
             db.prepare("UPDATE subs SET member_id=NULL WHERE member_id=?").bind(m[2]),
             db.prepare("DELETE FROM plan_joins WHERE member_id=?").bind(m[2]),
             db.prepare("DELETE FROM plans WHERE member_id=?").bind(m[2]),
+            db.prepare("DELETE FROM links WHERE member_id=?").bind(m[2]),
           ]);
         }
         return json({ ok: true });
@@ -416,6 +429,7 @@ export default {
             if (key === "required") v = Math.min(Math.max(Math.round(v), 1), 21);
             if (key === "sickMax") v = Math.min(Math.max(Math.round(v), 0), 21);
             if (key === "bonusCost") v = Math.min(Math.max(Math.round(v), 1), 20);
+            if (key === "importMin") v = Math.min(Math.max(Math.round(v), 0), 600);
           }
           stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)").bind(key, JSON.stringify(v)));
         }
@@ -509,6 +523,43 @@ export default {
         return json({ ok: true });
       }
 
+      /* ---------- Automatischer Import ---------- */
+
+      // Zugangsdaten hinterlegen. Wird sofort gegengeprueft, damit niemand
+      // mit einem Tippfehler dasteht und sich wundert, warum nichts kommt.
+      if (path === "/api/link" && method === "POST") {
+        const memberId = Number(body.member_id);
+        const member = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
+        if (!member) return json({ error: "Teilnehmer unbekannt." }, 400);
+        const athlete = clean(body.athlete_id, 40);
+        const key = String(body.api_key || "").trim().slice(0, 200);
+        if (!athlete || !key) return json({ error: "Athleten-ID und Schlüssel werden beide gebraucht." }, 400);
+
+        let name = "";
+        try {
+          name = await icu.verify({ athlete_id: athlete, api_key: key });
+        } catch (e) {
+          return json({ error: String(e.message || e) }, 400);
+        }
+        await db
+          .prepare("INSERT OR REPLACE INTO links(member_id,athlete_id,api_key,name,last_check,connected) VALUES(?,?,?,?,NULL,?)")
+          .bind(memberId, athlete, key, name || null, new Date().toISOString())
+          .run();
+        const found = await syncMember(env, db, memberId, ctx);
+        return json({ ok: true, name, imported: found });
+      }
+
+      if (path === "/api/link/remove" && method === "POST") {
+        await db.prepare("DELETE FROM links WHERE member_id=?").bind(Number(body.member_id)).run();
+        return json({ ok: true });
+      }
+
+      // Jetzt nachsehen - aus den Einstellungen heraus oder stuendlich vom Cron.
+      if (path === "/api/link/sync" && method === "POST") {
+        const only = body.member_id ? Number(body.member_id) : null;
+        return json({ ok: true, imported: await syncAll(env, db, ctx, only) });
+      }
+
       // Guthaben-Meldung ansehen oder ausloesen
       if (path === "/api/bonus-report" && method === "POST") {
         const when = body.now && !isNaN(Date.parse(body.now)) ? new Date(body.now) : new Date();
@@ -533,6 +584,65 @@ export default {
   },
 };
 
+
+/* ---------- Automatischer Import ---------- */
+
+// Holt die Einheiten einer Person und legt an, was noch fehlt.
+async function syncMember(env, db, memberId, ctx) {
+  const link = await db.prepare("SELECT * FROM links WHERE member_id=?").bind(memberId).first();
+  if (!link) return [];
+  const member = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
+  if (!member) return [];
+
+  const settings = { ...DEFAULTS };
+  for (const r of (await db.prepare("SELECT k,v FROM settings").all()).results) {
+    try { settings[r.k] = JSON.parse(r.v); } catch {}
+  }
+  const minimum = Number(settings.importMin) || 0;
+
+  // Beim ersten Mal zwei Wochen zurueck, danach reicht ein Tag Ueberlappung.
+  const days = link.last_check ? 2 : 14;
+  const oldest = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+
+  let list;
+  try {
+    list = await icu.activitiesSince(link, oldest);
+  } catch (e) {
+    console.log("Import für", member.name, "fehlgeschlagen:", String(e.message || e));
+    return [];
+  }
+  await db.prepare("UPDATE links SET last_check=? WHERE member_id=?")
+    .bind(new Date().toISOString(), memberId).run();
+
+  const added = [];
+  for (const act of list) {
+    const m = icu.mapActivity(act);
+    if (!isDate(m.date) || m.minutes < minimum) continue;
+
+    const res = await db
+      .prepare("INSERT OR IGNORE INTO entries(member_id,date,kind,units,sport,note,meta,photo,created,ext_id) VALUES(?,?,?,1,?,?,?,NULL,?,?)")
+      .bind(member.id, m.date, "workout", m.sport || null, m.note || "",
+            m.meta ? JSON.stringify(m.meta) : null, new Date().toISOString(), m.extId)
+      .run();
+    if (!res.meta?.changes) continue;          // kannten wir schon
+
+    added.push({ member: member.name, sport: m.sport, date: m.date, minutes: m.minutes });
+    const sending = notify(env, db,
+      { id: res.meta.last_row_id, kind: "workout", note: m.note, sport: m.sport, member_id: member.id },
+      member.name, "import").catch((e) => console.log("notify", String(e)));
+    if (ctx) ctx.waitUntil(sending); else await sending;
+  }
+  return added;
+}
+
+async function syncAll(env, db, ctx, only = null) {
+  const rows = only
+    ? [{ member_id: only }]
+    : (await db.prepare("SELECT member_id FROM links").all()).results;
+  const out = [];
+  for (const r of rows) out.push(...(await syncMember(env, db, r.member_id, ctx)));
+  return out;
+}
 
 /* ---------- Guthaben: Sonntagsmeldung ---------- */
 

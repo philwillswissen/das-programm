@@ -56,6 +56,7 @@ Sicherungen landen in `backups/` und gehören nicht ins Repo.
 | `worker.js` | API, Schema, Auslieferung der Oberfläche, Cron, Push |
 | `stats.js` | Abrechnung einer Woche: Strafen, Serie, Guthaben |
 | `nudge.js` | Motivationsnachrichten: Zeitfenster, Textbausteine, Wetter |
+| `icu.js` | Import über intervals.icu: Zugang, Sportarten, Einheiten |
 | `push.js` | Web Push nach RFC 8291 und 8292, ohne Abhängigkeiten |
 | `public/index.html` | die komplette Oberfläche, eine Datei, kein Framework |
 | `scripts/guard.cjs` | entscheidet, wogegen schreibende Tests laufen dürfen |
@@ -63,6 +64,15 @@ Sicherungen landen in `backups/` und gehören nicht ins Repo.
 Die Abrechnung läuft **nur** im Worker (`stats.js`). Die Oberfläche zeigt an,
 was `/api/state` liefert – sie rechnet nicht selbst, damit Anzeige und
 Benachrichtigungen nicht auseinanderlaufen.
+
+## Einheiten an zwei Stellen
+
+Die Formatierung von Distanz, Dauer, Tempo und Anstieg steht zweimal da: in
+`icu.js` für den Import und in `public/index.html` für hochgeladene Dateien.
+Das ist bewusst – die Oberfläche rechnet offline, der Worker beim Import.
+`test/icu.cjs` füttert beide Seiten mit denselben Werten und vergleicht das
+Ergebnis. Wer eine Seite ändert, ändert die andere mit, sonst schlägt der
+Test fehl.
 
 ## Secrets
 

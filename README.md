@@ -33,6 +33,13 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   ein eigener Eintrag – Sport oder Krankmeldung – muss stehen. Gesammelt wird erst ab dem
   Tag, an dem die Regel eingeschaltet wurde. Sonntagabends sagt die App Bescheid, wenn das
   Guthaben die Woche trägt – als Benachrichtigung und als Eintrag im Feed.
+- **Automatisch eintragen** – Jede Person hinterlegt einmal ihre Athleten-ID und
+  ihren API-Schlüssel von [intervals.icu](https://intervals.icu) (kostenlos). Der
+  stündliche Cron-Lauf holt neue Einheiten ab und trägt sie ein, samt Distanz, Dauer,
+  Tempo, Anstieg, Puls und Kalorien. intervals.icu sammelt die Einheiten selbst aus
+  Strava, Garmin, Wahoo, Polar und Suunto – damit braucht es bei keinem dieser Dienste
+  ein Entwicklerkonto. Einheiten unter einer einstellbaren Mindestdauer werden
+  übergangen, Doppelte verhindert ein eindeutiger Index.
 - **Gemeinsam** – Beim Eintragen lässt sich ankreuzen, wer noch dabei war; einer
   dokumentiert, alle bekommen die Einheit. Im Feed stehen diese als ein Beitrag.
   Aus dem Feed heraus kann man eine gemeinsame Einheit vorschlagen, die anderen
