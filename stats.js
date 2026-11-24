@@ -23,13 +23,29 @@ function rawWeek(entries, memberId, week, sickMax) {
   return { done, sickUnits, base: done + Math.min(sickUnits, sickMax) };
 }
 
+// Was eine zusätzliche Einheit wert ist: die erste über dem Ziel einen ganzen
+// Punkt, die zweite einen halben, die dritte 0,3 – danach nichts mehr.
+export const CREDIT_STEPS = [1, 0.5, 0.3];
+export const MAX_CREDITS = 9;
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+export function creditsEarned(done, required) {
+  let sum = 0;
+  for (let i = 0; i < done - required; i++) sum += CREDIT_STEPS[i] ?? 0;
+  return round1(sum);
+}
+
 /**
  * Rechnet jede Person durch, Woche für Woche in zeitlicher Reihenfolge.
  *
- * Guthaben entsteht nur aus echten Einheiten über dem Wochenziel. Eingesetzt
- * werden sie automatisch und nur dann, wenn die Woche sonst verloren wäre –
- * und auch dann nie für die ganze Woche: mindestens ein eigener Eintrag muss
- * stehen, Sport oder Krankmeldung. Eine komplett leere Woche rettet nichts.
+ * Guthaben entsteht nur aus echten Einheiten über dem Wochenziel und ist bei
+ * MAX_CREDITS gedeckelt. Eingesetzt wird es automatisch und nur dann, wenn die
+ * Woche sonst verloren wäre – und auch dann nie für die ganze Woche:
+ * mindestens ein eigener Eintrag muss stehen, Sport oder Krankmeldung.
+ *
+ * Die zeitliche Reihenfolge ist der Kern: Guthaben muss in der Woche, die es
+ * rettet, schon dagewesen sein. Rückwirkend geht nichts.
  */
 export function settle({ members, entries, settings, today }) {
   const required = Math.max(1, Number(settings.required) || 2);
@@ -51,7 +67,8 @@ export function settle({ members, entries, settings, today }) {
       const { done, sickUnits, base } = rawWeek(entries, m.id, w, sickMax);
       weeks++;
       if (base >= required) {
-        if (bonusOn && (!bonusFrom || w >= bonusFrom)) credits += Math.max(0, done - required); // nur echte Einheiten über dem Ziel
+        if (bonusOn && (!bonusFrom || w >= bonusFrom))
+          credits = round1(Math.min(MAX_CREDITS, credits + creditsEarned(done, required)));
         okWeeks.push(w);
         continue;
       }
@@ -60,8 +77,8 @@ export function settle({ members, entries, settings, today }) {
       const anyEntry = done + sickUnits >= 1;
       const mayCover = bonusOn && anyEntry && need <= required - 1 && credits >= need * cost;
       if (mayCover) {
-        credits -= need * cost;
-        spent += need * cost;
+        credits = round1(credits - need * cost);
+        spent = round1(spent + need * cost);
         saved++;
         okWeeks.push(w);
       } else {
@@ -72,7 +89,7 @@ export function settle({ members, entries, settings, today }) {
     // Laufende Woche
     const now = rawWeek(entries, m.id, cur, sickMax);
     const left = Math.max(0, required - now.base);
-    const pending = Math.max(0, now.done - required);          // Guthaben, das diese Woche entsteht
+    const pending = bonusOn ? Math.min(MAX_CREDITS - credits, creditsEarned(now.done, required)) : 0;
     const canRescue = bonusOn && now.done + now.sickUnits >= 1 && left > 0 && left <= required - 1 && credits >= left * cost;
 
     let streak = 0;
@@ -83,10 +100,14 @@ export function settle({ members, entries, settings, today }) {
     }
 
     out[m.id] = {
-      sessions: entries.filter((e) => e.member_id === m.id && e.kind !== "sick").length,
+      // Nur was seit dem Start der Challenge passiert ist - und nicht, bevor
+      // die Person dabei war.
+      sessions: entries.filter(
+        (e) => e.member_id === m.id && e.kind !== "sick" && weekOf(e.date) >= from
+      ).length,
       weeks, missed, saved, spent,
       paid: missed * (Number(settings.fine) || 0),
-      credits, pending: bonusOn ? pending : 0, streak,
+      credits, pending: round1(Math.max(0, pending)), streak, maxCredits: MAX_CREDITS,
       week: { done: now.done, sick: now.sickUnits, credit: now.base, left, canRescue },
       rescueCost: left * cost,
     };

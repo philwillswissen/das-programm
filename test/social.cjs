@@ -204,6 +204,13 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector('.post:has-text("Tanzen")');
   ok((await page.$$('.post:has-text("Tanzen") img.ph')).length === 1, "das Foto taucht im Sammelbeitrag auf");
+
+  // Zu einer Einheit ohne Bild - etwa einer automatisch uebernommenen - soll
+  // sich eines nachtragen lassen.
+  ok(await page.locator('.post:has-text("Volleyball") button:has-text("Foto hinzuf\u00fcgen")').isVisible(),
+     "Eintraege ohne Bild bieten an, eines hinzuzuf\u00fcgen");
+  ok(await page.locator('.post:has-text("Tanzen") button:has-text("Foto tauschen")').isVisible(),
+     "und Eintraege mit Bild, es zu tauschen");
   ok(errors.length === 0, "keine JavaScript-Fehler" + (errors.length ? ": " + errors[0] : ""));
 
   await browser.close();

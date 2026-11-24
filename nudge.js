@@ -219,7 +219,7 @@ function opener(kind, ctx, seed) {
 export function buildMessage(kind, ctx, favs, weather, seed) {
   const head = opener(kind, ctx, seed);
   const tail = suggestion(favs, weather, ctx.dow, seed >>> 5);
-  return { title: "Das Programm", body: `${head} ${tail}`, tag: "nudge-" + ctx.week + "-" + kind };
+  return { title: "Das Programm", body: `${head} ${tail}`, tag: "nudge-" + ctx.week + "-" + kind, url: "/#feed" };
 }
 
 // Der kurze Zusatz, den eine fremde Meldung ab Wochenmitte bekommt.

@@ -102,11 +102,33 @@ const today = () => new Date().toISOString().slice(0, 10);
   server.close();
 
   console.log("\n== Dauer-Untergrenze ==");
-  await api("settings", "POST", { importMin: 20 });
-  ok((await api("state")).data.settings.importMin === 20, "Untergrenze steht in den Einstellungen");
+  ok((await api("state")).data.settings.importMin === undefined,
+     "die Untergrenze ist fest verdrahtet und keine Einstellung mehr");
   const kurz = icu.mapActivity({ id: 10, type: "Walk", start_date_local: today() + "T10:00:00", moving_time: 480 });
   ok(kurz.minutes === 8, "ein 8-Minuten-Spaziergang wird als 8 min erkannt");
-  ok(kurz.minutes < 20, "und läge damit unter der Grenze");
+  ok(kurz.minutes < 20, "und läge damit unter der Grenze von 20 Minuten");
+
+  console.log("\n== Foto nachtragen ==");
+  // Eine automatisch übernommene Einheit hat kein Bild - man soll eines anhängen können.
+  const auto = await api("entry", "POST", { member_id: anna, date: today(), kind: "workout", sport: "Laufen", device: "import" });
+  const tiny = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  ok((await api("state")).data.entries.find((e) => e.id === auto.data.id).hasPhoto === 0, "zunächst ohne Bild");
+  ok((await api("entry/" + auto.data.id + "/photo", "POST", { photo: tiny })).status === 200, "Bild lässt sich anhängen");
+  ok(!!(await api("state")).data.entries.find((e) => e.id === auto.data.id).hasPhoto, "und ist danach da");
+  ok((await fetch(BASE + "/api/photo/" + auto.data.id, { headers: { "x-pin": PIN } }).then((r) => r.text())) === tiny,
+     "das Bild kommt unverändert zurück");
+  ok((await api("entry/999999/photo", "POST", { photo: tiny })).status === 404, "unbekannter Eintrag wird abgelehnt");
+  ok((await api("entry/" + auto.data.id + "/photo", "POST", { photo: "kein-bild" })).status === 400, "Unsinn wird abgelehnt");
+  ok((await api("entry/" + auto.data.id + "/photo", "POST", { photo: "data:image/jpeg;base64," + "A".repeat(800000) })).status === 413,
+     "zu große Bilder werden abgelehnt");
+  ok((await api("entry/" + auto.data.id + "/photo", "POST", { photo: null })).status === 200, "und wieder entfernen geht auch");
+
+  console.log("\n== Standort fürs Wetter ==");
+  ok((await api("member/" + anna + "/geo", "POST", { lat: 48.14, lon: 11.58 })).status === 200, "Koordinaten lassen sich hinterlegen");
+  ok(!!(await api("state")).data.members.find((m) => m.id === anna).hasGeo, "der Zustand sagt, dass ein Standort da ist");
+  ok(!JSON.stringify((await api("state")).data.members).includes("48.14"), "die genauen Koordinaten stehen nicht im Zustand");
+  ok((await api("member/" + anna + "/geo", "POST", { lat: 999, lon: 0 })).status === 400, "unbrauchbare Koordinaten werden abgelehnt");
+  ok((await api("member/" + anna + "/geo", "POST", {})).status === 400, "leere Angaben auch");
 
   console.log("\n== Schlüssel bleibt geheim ==");
   const st = await api("state");

@@ -166,8 +166,8 @@ let dev;
   await sleep(1000);
   ok(real.data.nudges.length === 0 && received.length === 0, "in derselben Woche kommt kein zweiter");
 
-  console.log("\n== Wetter (echte Open-Meteo-Antwort) ==");
-  // workerd loest im Testcontainer keine Namen auf, deshalb hier direkt gegen die API.
+  console.log("\n== Wetter ==");
+  // workerd loest im Testcontainer keine Namen auf, deshalb hier direkt.
   const mem = new Map();
   const fakeDb = {
     prepare(sql) {
@@ -178,19 +178,48 @@ let dev;
     },
   };
   const { geocode, forecast } = require("../nudge.js");
-  const geo = await geocode(fakeDb, "M\u00fcnchen");
-  ok(geo && Math.abs(geo.lat - 48.14) < 0.5 && Math.abs(geo.lon - 11.58) < 0.5,
-     "Ortssuche liefert Koordinaten: " + JSON.stringify(geo));
-  ok(mem.size === 1, "Ergebnis wird zwischengespeichert");
-  const days = await forecast(fakeDb, geo, "Europe/Berlin");
-  ok(Array.isArray(days) && days.length >= 3, (days || []).length + " Tage Vorhersage");
-  ok(days.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.date) && Number.isFinite(d.temp) && Number.isFinite(d.rain)),
-     "Datum, Temperatur und Regenwahrscheinlichkeit sind brauchbar: " + JSON.stringify(days[0]));
-  const wxMsg = buildMessage("start", ctx({}), ["Radfahren", "Krafttraining"], days, 7);
-  ok(/\d+\u00b0|Regen|regnet|nass|Schnee|trocken/.test(wxMsg.body),
-     "daraus wird ein Wetterhinweis: \u201E" + wxMsg.body + "\u201C");
-  ok(await geocode(fakeDb, "Hier-gibt-es-keinen-Ort-xyz") === null, "unbekannter Ort liefert nichts");
-  ok(await forecast(fakeDb, null, "Europe/Berlin") === null, "ohne Ort kein Wetter");
+
+  // Aufgezeichnete Antwort: prueft die Auswertung unabhaengig vom Netz.
+  const canned = {
+    daily: {
+      time: ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"],
+      weather_code: [61, 3, 1, 71],
+      temperature_2m_max: [8.4, 11.2, 14.9, -1.3],
+      precipitation_probability_max: [85, 20, 5, 60],
+    },
+  };
+  const canFetch = async () => ({ ok: true, json: async () => canned });
+  const days = await forecast(fakeDb, { lat: 48.14, lon: 11.58 }, "Europe/Berlin", canFetch);
+  ok(days.length === 4, "vier Tage aus der Antwort gelesen (" + days.length + ")");
+  ok(days[0].temp === 8 && days[0].rain === 85 && days[0].code === 61, "Werte des ersten Tages: " + JSON.stringify(days[0]));
+  ok(days.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.date)), "jeder Tag hat ein brauchbares Datum");
+
+  const nass = buildMessage("start", ctx({}), ["Radfahren", "Krafttraining"], days, 7);
+  ok(/Regen|regnet|nass|drinnen|Krafttraining/.test(nass.body), "bei 85 % Regen wird etwas drinnen vorgeschlagen: \u201E" + nass.body + "\u201C");
+  const schnee = buildMessage("start", ctx({}), ["Laufen"], days.slice(3), 3);
+  ok(/Schnee/.test(schnee.body), "Schneecode wird als Schnee erkannt: \u201E" + schnee.body + "\u201C");
+  const trocken = buildMessage("start", ctx({}), ["Radfahren"], days.slice(2), 1);
+  ok(/trocken|14\u00b0/.test(trocken.body), "trockener Tag wird auch so genannt: \u201E" + trocken.body + "\u201C");
+
+  ok(await forecast(fakeDb, null, "Europe/Berlin", canFetch) === null, "ohne Ort kein Wetter");
+  const kaputt = await forecast({ prepare: fakeDb.prepare }, { lat: 1, lon: 1 }, "Europe/Berlin",
+    async () => ({ ok: false, status: 500, json: async () => ({}) }));
+  ok(kaputt === null, "eine Stoerung beim Wetterdienst liefert einfach nichts");
+
+  // Stichprobe gegen den echten Dienst - ein Netzfehler ist kein Fehler im Code.
+  mem.clear();
+  try {
+    const geo = await geocode(fakeDb, "M\u00fcnchen");
+    const echt = geo && await forecast(fakeDb, geo, "Europe/Berlin");
+    if (echt?.length) {
+      ok(Math.abs(geo.lat - 48.14) < 0.5, "Stichprobe: Ortssuche liefert M\u00fcnchen (" + geo.lat + ", " + geo.lon + ")");
+      ok(Number.isFinite(echt[0].temp), "Stichprobe: echte Vorhersage ist brauchbar (" + JSON.stringify(echt[0]) + ")");
+    } else {
+      console.log("  \u2013 Stichprobe gegen Open-Meteo \u00fcbersprungen (nicht erreichbar)");
+    }
+  } catch (e) {
+    console.log("  \u2013 Stichprobe gegen Open-Meteo \u00fcbersprungen: " + String(e.message || e));
+  }
 
   await api("settings", "POST", { place: "Hier-gibt-es-keinen-Ort-xyz" });
   const noGeo = await api("nudges", "POST", { now: atBerlin(dayB, slotB.hour), force: "start" });

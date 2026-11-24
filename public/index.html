@@ -129,9 +129,15 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:9.5px;font-weight:600}
 #backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:29}
 #backdrop.on{opacity:1;pointer-events:auto}
-#install{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;
+#install,.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;
   padding:20px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(2,6,23,.25);transform:translateY(115%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
-#install.on{transform:none}
+#install.on,.sheet.on{transform:none}
+.sheet h3{margin:0 0 8px;font-size:17px}
+.sheet p,.sheet li{font-size:14px;line-height:1.55;color:var(--mut);margin:7px 0}
+.sheet b{color:var(--t)}
+.sheet ul{margin:8px 0;padding-left:18px}
+button.i{width:22px;height:22px;padding:0;border-radius:50%;background:var(--chip);color:var(--mut);font-size:12px;font-weight:700;line-height:22px;flex:0 0 auto;margin:0 0 0 6px;vertical-align:-4px}
+.hero button.i{background:rgba(255,255,255,.25);color:#fff}
 #install .head{display:flex;gap:12px;align-items:center;margin-bottom:10px}
 #install img{width:52px;height:52px;border-radius:14px;flex:0 0 auto}
 #install h3{margin:0;font-size:17px}
@@ -154,8 +160,9 @@ nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decorat
 </nav>
 <div class="toast" id="toast"></div>
 <div id="tip"></div>
-<div id="backdrop" onclick="laterInstall(false)"></div>
+<div id="backdrop" onclick="laterInstall(false);hideInfo()"></div>
 <div id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle"></div>
+<div id="info" class="sheet" role="dialog" aria-modal="true"></div>
 <script>
 /* ---------- Basis ---------- */
 const $ = s => document.querySelector(s);
@@ -220,6 +227,45 @@ function showInstall(force) {
   box.classList.add("on");
   document.getElementById("backdrop").classList.add("on");
 }
+// Kurze Erklärungen, dort wo die Frage aufkommt.
+const INFOS = {
+  guthaben: ["So funktioniert das Guthaben", `
+    <p>Wer mehr macht als das Wochenziel, sammelt Guthaben:</p>
+    <ul><li>die <b>dritte</b> Einheit einer Woche bringt <b>1</b></li>
+        <li>die <b>vierte</b> noch <b>0,5</b></li>
+        <li>die <b>fünfte</b> noch <b>0,3</b></li>
+        <li>alles darüber bringt nichts mehr</li></ul>
+    <p>Mehr als <b>9</b> lassen sich nicht ansparen.</p>
+    <p>Fehlt dir später eine Einheit, springen <b>3 Guthaben</b> automatisch ein –
+       aber nur, wenn sie zu dem Zeitpunkt schon da waren. Rückwirkend geht nichts.</p>
+    <p>Eine ganze Woche lässt sich nie decken: mindestens ein eigener Eintrag muss
+       stehen, Sport oder Krankmeldung. Wer eine Woche gar nichts macht, zahlt.</p>`],
+  anstupser: ["Wann die App sich meldet", `
+    <p>Nur wenn du hinterherhinkst, und höchstens einmal je Gelegenheit:</p>
+    <ul><li><b>Mitte der Woche</b>, wenn noch gar nichts steht – mal mittwochs, mal donnerstags,
+            zwischen 11 und 14 Uhr</li>
+        <li><b>zum Wochenende</b>, wenn noch etwas fehlt – freitags oder samstags vormittags</li>
+        <li><b>sonntags</b> als letzte Erinnerung, bevor es Geld kostet</li></ul>
+    <p>Wann genau, wechselt von Woche zu Woche. Wer sein Ziel hat, hört nichts.</p>
+    <p>Der Text richtet sich nach deiner Serie, deinen Sportarten und – wenn du den
+       Standort freigibst – nach dem Wetter.</p>`],
+};
+
+function showInfo(key) {
+  const [title, body] = INFOS[key] || [];
+  if (!title) return;
+  const box = document.getElementById("info");
+  box.innerHTML = `<h3>${title}</h3>${body}<button class="ghost" onclick="hideInfo()">Verstanden</button>`;
+  box.classList.add("on");
+  document.getElementById("backdrop").classList.add("on");
+}
+function hideInfo() {
+  document.getElementById("info").classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on");
+}
+const infoBtn = key => `<button class="i" title="Erklärung" onclick="showInfo('${key}')">i</button>`;
+const fmtCredits = n => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
+
 function hideInstall() {
   document.getElementById("install").classList.remove("on");
   document.getElementById("backdrop").classList.remove("on");
@@ -290,7 +336,7 @@ async function load() {
     D = await get("state");
     if (me && !D.members.some(m => m.id === me)) { me = 0; localStorage.removeItem("me"); }
     render();
-    if (!load.offered) { load.offered = true; setTimeout(() => showInstall(), 1000); }
+    if (!load.offered) { load.offered = true; setTimeout(() => showInstall(), 1000); refreshLocation(); }
   } catch (e) { $("#app").innerHTML = '<div class="card"><h2>Fehler</h2>' + esc(e.message) + '</div>'; }
 }
 
@@ -346,7 +392,7 @@ function viewHome() {
   <div class="card"><h2>Rangliste</h2><table>
     <tr><th></th><th>Einheiten</th>${s.bonus ? "<th>Guthaben</th>" : ""}<th>Verpasst</th><th>Eingezahlt</th></tr>
     ${board.map((m, i) => `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
-      <td>${st[m.id].sessions}</td>${s.bonus ? `<td>✨ ${st[m.id].credits}</td>` : ""}
+      <td>${st[m.id].sessions}</td>${s.bonus ? `<td>✨ ${fmtCredits(st[m.id].credits)}</td>` : ""}
       <td>${st[m.id].missed}/${st[m.id].weeks}${st[m.id].saved ? ` <span class="ok" title="mit Guthaben gerettet">+${st[m.id].saved}✨</span>` : ""}</td>
       <td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
   </table>${s.bonus ? `<div class="hint">Jede Einheit über dem Ziel gibt ein Guthaben. ${s.bonusCost} Guthaben decken
@@ -376,8 +422,9 @@ function hero(st) {
       + ` · ${cr} von ${s.required}`;
   const bonus = s.bonus
     ? `<div class="sub" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.25);padding-top:8px">
-        ✨ ${mine.credits} Guthaben${mine.pending ? " (+" + mine.pending + " diese Woche)" : ""}
-        ${mine.week.canRescue ? ` · ${mine.rescueCost} davon würden die Woche decken` : ""}</div>`
+        ✨ <b>${fmtCredits(mine.credits)}</b> von ${mine.maxCredits || 9} Guthaben${
+          mine.pending ? " (+" + fmtCredits(mine.pending) + " diese Woche)" : ""}
+        ${mine.week.canRescue ? ` · ${mine.rescueCost} davon decken die Woche` : ""}${infoBtn("guthaben")}</div>`
     : "";
   return `<div class="card hero">${headline}
     <div class="bar"><i style="width:${pct}%"></i></div>
@@ -587,8 +634,12 @@ function viewFeed() {
     days[days.length - 1].items.push(e);
   }
   return planCards() + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
-    if (e.isEvent) return `<div class="post plan"><div class="act">✨ <b>${esc(nameOf(e.member_id))}</b></div>
-      <div class="sub" style="margin-top:3px">${esc(e.text)}</div></div>`;
+    if (e.isEvent) {
+      const who = D.members.find(m => m.id === e.member_id);
+      if (!who) return "";                       // Teilnehmer gelöscht - die Meldung gehört niemandem mehr
+      return `<div class="post plan"><div class="act">✨ <b>Guthaben</b> <span class="sub">für ${esc(who.name)}</span></div>
+        <div class="sub" style="margin-top:3px">${esc(e.text)}</div></div>`;
+    }
     const names = e.crew.map(nameOf);
     const n = names.length > 1 ? names.slice(0, -1).join(", ") + " & " + names[names.length - 1] : names[0];
     const meta = e.meta ? Object.entries(JSON.parse(e.meta)) : [];
@@ -602,7 +653,10 @@ function viewFeed() {
         : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
       ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
       ${meta.length ? `<div style="margin-top:4px">${meta.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("")}</div>` : ""}
-      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">` : ""}
+      ${e.hasPhoto
+        ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">
+           <button class="s" style="margin-top:6px" onclick="pickPhoto(${e.photoId || e.id})">Foto tauschen</button>`
+        : `<button class="s" style="margin-top:8px" onclick="pickPhoto(${e.id})">📷 Foto hinzufügen</button>`}
     </div>`;
   }).join("")).join("");
 }
@@ -959,18 +1013,6 @@ function viewSet() {
     <label>Start der Challenge</label><input id="start" type="date" value="${esc(s.start)}">
     <button onclick="saveSettings()">Regeln speichern</button></div>
 
-  <div class="card"><h2>Guthaben</h2>
-    <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
-      <div class="sub">${s.bonus ? "aktiv" : "aus"}</div></div>
-      <button class="s" onclick="toggleBonus()">${s.bonus ? "Ausschalten" : "Einschalten"}</button></div>
-    ${s.bonus ? `<label>Wie viele Guthaben decken eine fehlende Einheit?</label>
-      <div class="row"><input id="bonusCost" type="number" min="1" max="20" value="${s.bonusCost}">
-        <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
-    <div class="hint">Jede Einheit über dem Wochenziel gibt ein Guthaben. Fehlt später eine Einheit,
-      springen ${s.bonusCost} Guthaben automatisch ein. Eine ganze Woche lässt sich nie decken –
-      mindestens eine echte Sporteinheit muss in der Woche stehen, eine Krankmeldung reicht dafür nicht.</div>
-  </div>
-
   <div class="card"><h2>Benachrichtigungen</h2>
     ${!canPush ? '<div class="sub">Dieser Browser unterstützt keine Push-Benachrichtigungen.</div>'
       : !D.vapidPublicKey ? '<div class="sub">Auf dem Server sind keine VAPID-Keys hinterlegt.</div>'
@@ -989,7 +1031,7 @@ function viewSet() {
         <button class="x" onclick="unlinkIcu()">✕</button></div>
         <button class="ghost" onclick="syncIcu()">Jetzt nachsehen</button>
         <div id="syncInfo" class="sub"></div>
-        <div class="hint">Jede neue Einheit wird stündlich abgeholt und hier eingetragen – du musst nichts mehr tun.</div>`;
+        <div class="hint">Jede neue Einheit ab 20 Minuten wird stündlich abgeholt und hier eingetragen – du musst nichts mehr tun.</div>`;
       return `<div class="sub">Deine Einheiten aus Strava, Garmin, Wahoo &amp; Co. können sich von selbst eintragen.
         Dafür brauchst du ein kostenloses Konto bei <b>intervals.icu</b>, das deine Einheiten ohnehin schon einsammelt.</div>
         <ol style="font-size:14px;line-height:1.7;padding-left:20px">
@@ -1003,19 +1045,19 @@ function viewSet() {
         <div class="hint">Der Schlüssel liegt nur in der Datenbank dieser App und wird nie angezeigt.
           Zum Lösen genügt ein Tipp aufs ✕.</div>`;
     })()}
-    ${(D.links || []).length ? `<label>Einheiten erst ab … Minuten übernehmen</label>
-      <div class="row"><input id="importMin" type="number" min="0" max="600" value="${s.importMin}">
-        <button class="s" onclick="saveImportMin()">Merken</button></div>` : ""}
   </div>
 
   <div class="card"><h2>Motivation</h2>
-    <div class="flex"><div><b>Anstupser bei Rückstand</b>
-      <div class="sub">Mitte der Woche, wenn noch nichts steht – und zum Wochenende, wenn noch etwas fehlt.</div></div>
-      <button class="s" onclick="toggleNudges()">${s.nudges ? "Aus" : "An"}</button></div>
-    ${s.nudges ? `<label>Ort für den Wetterhinweis (optional)</label>
-      <div class="row"><input id="place" placeholder="z. B. München" value="${esc(s.place || "")}">
-        <button class="s" onclick="savePlace()">Merken</button></div>
-      <div class="hint">Regnet es, wird etwas drinnen vorgeschlagen – und zwar das, was du ohnehin machst.</div>
+    <div class="flex"><div><b>Anstupser bei Rückstand${infoBtn("anstupser")}</b>
+      <div class="sub">${s.nudges ? "aktiv" : "aus"}</div></div>
+      <button class="s" onclick="toggleNudges()">${s.nudges ? "Ausschalten" : "Einschalten"}</button></div>
+    ${s.nudges ? `
+      <div class="flex" style="margin-top:12px"><div><b>Wetterhinweis</b>
+        <div class="sub">${me && D.members.find(m => m.id === me)?.hasGeo
+          ? "Standort hinterlegt" : "kein Standort – noch ohne Wetter"}</div></div>
+        <button class="s" onclick="useLocation()">Standort verwenden</button></div>
+      <div class="hint">Einmal freigeben genügt, grob reicht völlig. Regnet es, schlägt die App etwas
+        drinnen vor – und zwar das, was du ohnehin machst.</div>
       <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
       <div id="nudgePreview" class="sub"></div>` : ""}
   </div>
@@ -1040,6 +1082,18 @@ function viewSet() {
     <button onclick="addExpense()">Buchen</button>
     ${D.expenses.map(x => `<div class="item flex"><div>${dm(x.date)} · ${esc(x.title)} · <b>${money(x.amount, s.currency)}</b></div>
       <button class="x" onclick="delExpense(${x.id})">✕</button></div>`).join("")}</div>
+
+  <div class="card"><h2>Guthaben${infoBtn("guthaben")}</h2>
+    <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
+      <div class="sub">${s.bonus ? "aktiv" : "aus"}</div></div>
+      <button class="s" onclick="toggleBonus()">${s.bonus ? "Ausschalten" : "Einschalten"}</button></div>
+    ${s.bonus ? `<label>Wie viele Guthaben decken eine fehlende Einheit?</label>
+      <div class="row"><input id="bonusCost" type="number" min="1" max="20" value="${s.bonusCost}">
+        <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
+    <div class="hint">Die dritte Einheit einer Woche bringt 1 Guthaben, die vierte 0,5, die fünfte 0,3 –
+      höchstens 9 insgesamt. Fehlt später eine Einheit, springen ${s.bonusCost} davon ein, aber nie
+      rückwirkend und nie für eine ganze Woche. Das Kleingedruckte steht hinter dem i.</div>
+  </div>
 
   <div class="card"><h2>App</h2>
     <div class="flex"><div><b>Auf dem Home-Bildschirm</b><div class="sub">${installed() ? "installiert" : "noch nicht installiert"}</div></div>
@@ -1077,11 +1131,6 @@ const syncIcu = guard(async () => {
     : "Nichts Neues.";
   if (r.imported.length) await load();
 });
-const saveImportMin = guard(async () => {
-  await api("settings", "POST", { importMin: +$("#importMin").value });
-  toast("Gemerkt.");
-  await load();
-});
 
 const toggleBonus = guard(async () => {
   await api("settings", "POST", { bonus: !D.settings.bonus });
@@ -1096,11 +1145,32 @@ const toggleNudges = guard(async () => {
   await api("settings", "POST", { nudges: !D.settings.nudges });
   await load();
 });
-const savePlace = guard(async () => {
-  await api("settings", "POST", { place: $("#place").value });
-  toast("Gemerkt.");
+// Grober Standort fürs Wetter. Einmal freigeben, danach merkt sich die App ihn.
+const useLocation = guard(async () => {
+  if (!me) return toast("Wähle oben erst aus, wer du bist.");
+  if (!navigator.geolocation) return toast("Dieses Gerät gibt keinen Standort her.");
+  toast("Frage den Standort ab …");
+  const pos = await new Promise((res, rej) =>
+    navigator.geolocation.getCurrentPosition(res, rej, { timeout: 12000, maximumAge: 6 * 3600e3 }))
+    .catch(() => { throw new Error("Standort nicht erlaubt oder nicht verfügbar."); });
+  await api("member/" + me + "/geo", "POST", { lat: pos.coords.latitude, lon: pos.coords.longitude });
+  localStorage.geoAsked = "1";
+  toast("Standort gemerkt.");
   await load();
 });
+
+// Wenn die Freigabe schon erteilt ist, halten wir ihn still aktuell -
+// damit der Hinweis auch stimmt, wenn jemand unterwegs ist.
+async function refreshLocation() {
+  if (!me || localStorage.geoAsked !== "1" || !navigator.geolocation) return;
+  try {
+    const st = await navigator.permissions?.query({ name: "geolocation" });
+    if (st && st.state !== "granted") return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => api("member/" + me + "/geo", "POST", { lat: pos.coords.latitude, lon: pos.coords.longitude }).catch(() => {}),
+      () => {}, { timeout: 8000, maximumAge: 12 * 3600e3 });
+  } catch {}
+}
 const previewNudge = guard(async () => {
   const box = $("#nudgePreview");
   box.textContent = "Einen Moment …";
@@ -1117,6 +1187,32 @@ const renameMember = guard(async (id, name) => { await api("member", "POST", { i
 const rejoinMember = guard(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
 const delMember = guard(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
 const delEntry = guard(async id => { if (!confirm("Eintrag löschen?")) return; await api("entry/" + id, "DELETE"); await load(); });
+// Foto nachtragen - etwa zu einer Einheit, die automatisch übernommen wurde.
+let photoFor = null;
+function pickPhoto(entryId) {
+  photoFor = entryId;
+  let input = document.getElementById("photoPick");
+  if (!input) {
+    input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.id = "photoPick";
+    input.style.display = "none";
+    input.onchange = () => uploadPhoto(input.files[0]).finally(() => { input.value = ""; });
+    document.body.appendChild(input);
+  }
+  input.click();
+}
+const uploadPhoto = guard(async file => {
+  if (!file || !photoFor) return;
+  toast("Verkleinere das Bild …");
+  const photo = await shrink(file);
+  await api("entry/" + photoFor + "/photo", "POST", { photo });
+  photoFor = null;
+  toast("Foto angehängt.");
+  await load();
+});
+
 const delExpense = guard(async id => { await api("expense/" + id, "DELETE"); await load(); });
 const addExpense = guard(async () => {
   const a = +$("#ea").value; if (!a) return toast("Betrag fehlt.");
@@ -1205,7 +1301,10 @@ addEventListener("visibilitychange", () => {
   if (currentPage() === "add" || currentPage() === "set") return;
   load();
 });
-if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => { if (e.data === "refresh") load(); });
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => {
+  if (e.data === "refresh") load();
+  if (e.data === "show-feed") { location.hash = "#feed"; load(); }
+});
 load();
 </script>
 </body>

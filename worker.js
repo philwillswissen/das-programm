@@ -76,9 +76,11 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS links(member_id INTEGER PRIMARY KEY, athlete_id TEXT NOT NULL, api_key TEXT NOT NULL, name TEXT, last_check TEXT, connected TEXT)",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "", importMin: 20 };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
+// Kürzere Einheiten werden beim automatischen Import übergangen.
+const IMPORT_MIN_MINUTES = 20;
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -96,6 +98,8 @@ const ALTERS = [
   "ALTER TABLE entries ADD COLUMN sport TEXT",
   "ALTER TABLE entries ADD COLUMN group_id TEXT",
   "ALTER TABLE entries ADD COLUMN ext_id TEXT",
+  "ALTER TABLE members ADD COLUMN lat REAL",
+  "ALTER TABLE members ADD COLUMN lon REAL",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext_id) WHERE ext_id IS NOT NULL",
 ];
 
@@ -113,6 +117,17 @@ async function migrate(db) {
   await migrated;
 }
 
+async function loadSettings(db) {
+  const out = { ...DEFAULTS, start: weekOf(today()) };
+  const { results } = await db.prepare("SELECT k,v FROM settings").all();
+  for (const row of results) {
+    // Abgeschaffte Einstellungen bleiben in der Datenbank liegen - hier enden sie.
+    if (!(row.k in DEFAULTS)) continue;
+    try { out[row.k] = JSON.parse(row.v); } catch {}
+  }
+  return out;
+}
+
 // Montag der Woche (UTC-stabil)
 function weekOf(dateStr) {
   const d = new Date(dateStr + "T12:00:00Z");
@@ -124,11 +139,7 @@ function weekOf(dateStr) {
 async function weekStanding(db) {
   const week = weekOf(today());
   const [settings, rows] = await Promise.all([
-    db.prepare("SELECT k,v FROM settings").all().then((r) => {
-      const out = { ...DEFAULTS };
-      for (const x of r.results) { try { out[x.k] = JSON.parse(x.v); } catch {} }
-      return out;
-    }),
+    loadSettings(db),
     db.prepare("SELECT member_id,kind,units FROM entries WHERE date >= ?").bind(week).all().then((r) => r.results),
   ]);
   const required = Number(settings.required) || 2;
@@ -177,6 +188,7 @@ async function notify(env, db, entry, who, fromDevice) {
           title: "Das Programm",
           body: base + hint(s.member_id),
           tag: "entry-" + entry.id,
+          url: "/#feed",
         });
         if (status === 404 || status === 410) {
           await db.prepare("DELETE FROM subs WHERE device=?").bind(s.device).run();
@@ -196,7 +208,7 @@ async function notifyPlan(env, db, plan, proposer, fromDevice) {
   const body = `${proposer} schlägt ${plan.sport || "eine Einheit"} vor – ${when}. Wer ist dabei?`;
   await Promise.all(results.map(async (s) => {
     try {
-      const status = await sendPush(env, s, { title: "Das Programm", body, tag: "plan-" + plan.id });
+      const status = await sendPush(env, s, { title: "Das Programm", body, tag: "plan-" + plan.id, url: "/#feed" });
       if (status === 404 || status === 410) await db.prepare("DELETE FROM subs WHERE device=?").bind(s.device).run();
     } catch (e) { console.log("push failed", s.device, String(e)); }
   }));
@@ -255,14 +267,9 @@ export default {
       // --- Gesamtzustand ---
       if (path === "/api/state" && method === "GET") {
         const all = (sql) => db.prepare(sql).all().then((r) => r.results);
-        const settings = { ...DEFAULTS, start: weekOf(today()) };
-        for (const row of await all("SELECT k,v FROM settings")) {
-          try {
-            settings[row.k] = JSON.parse(row.v);
-          } catch {}
-        }
+        const settings = await loadSettings(db);
         const [members, entries, expenses, plans, joins, events, links] = await Promise.all([
-          all("SELECT id,name,joined FROM members ORDER BY id"),
+          all("SELECT id,name,joined,(lat IS NOT NULL) AS hasGeo FROM members ORDER BY id"),
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
@@ -402,6 +409,27 @@ export default {
       }
 
       // --- Ausgaben ---
+      // Standort des Geräts - grob reicht, er dient nur dem Wetterhinweis.
+      if ((m = path.match(/^\/api\/member\/(\d+)\/geo$/)) && method === "POST") {
+        const lat = Number(body.lat), lon = Number(body.lon);
+        if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180)
+          return json({ error: "Koordinaten unbrauchbar." }, 400);
+        await db.prepare("UPDATE members SET lat=?, lon=? WHERE id=?")
+          .bind(Math.round(lat * 100) / 100, Math.round(lon * 100) / 100, m[1]).run();
+        return json({ ok: true });
+      }
+
+      // Foto nachträglich anhängen - etwa zu einer automatisch übernommenen Einheit.
+      if ((m = path.match(/^\/api\/entry\/(\d+)\/photo$/)) && method === "POST") {
+        const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") ? body.photo : null;
+        if (!photo && body.photo !== null) return json({ error: "Kein Bild." }, 400);
+        if (photo && photo.length > MAX_PHOTO) return json({ error: "Foto zu groß." }, 413);
+        const row = await db.prepare("SELECT id,group_id FROM entries WHERE id=?").bind(m[1]).first();
+        if (!row) return json({ error: "Eintrag unbekannt." }, 404);
+        await db.prepare("UPDATE entries SET photo=? WHERE id=?").bind(photo, row.id).run();
+        return json({ ok: true });
+      }
+
       if (path === "/api/expense" && method === "POST") {
         const amount = Number(body.amount);
         if (!isFinite(amount) || amount === 0) return json({ error: "Betrag fehlt." }, 400);
@@ -430,7 +458,6 @@ export default {
             if (key === "required") v = Math.min(Math.max(Math.round(v), 1), 21);
             if (key === "sickMax") v = Math.min(Math.max(Math.round(v), 0), 21);
             if (key === "bonusCost") v = Math.min(Math.max(Math.round(v), 1), 20);
-            if (key === "importMin") v = Math.min(Math.max(Math.round(v), 0), 600);
           }
           stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)").bind(key, JSON.stringify(v)));
         }
@@ -528,12 +555,9 @@ export default {
       // Startzustand schlank bleibt.
       if (path === "/api/report" && method === "GET") {
         const all = (sql) => db.prepare(sql).all().then((r) => r.results);
-        const settings = { ...DEFAULTS, start: weekOf(today()) };
-        for (const row of await all("SELECT k,v FROM settings")) {
-          try { settings[row.k] = JSON.parse(row.v); } catch {}
-        }
+        const settings = await loadSettings(db);
         const [members, entries] = await Promise.all([
-          all("SELECT id,name FROM members ORDER BY id"),
+          all("SELECT id,name,joined FROM members ORDER BY id"),
           all("SELECT member_id,date,kind,units,sport,meta,group_id FROM entries"),
         ]);
         return json(report({ members, entries, settings, today: today() }));
@@ -610,11 +634,7 @@ async function syncMember(env, db, memberId, ctx) {
   const member = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
   if (!member) return [];
 
-  const settings = { ...DEFAULTS };
-  for (const r of (await db.prepare("SELECT k,v FROM settings").all()).results) {
-    try { settings[r.k] = JSON.parse(r.v); } catch {}
-  }
-  const minimum = Number(settings.importMin) || 0;
+  const minimum = IMPORT_MIN_MINUTES;
 
   // Beim ersten Mal zwei Wochen zurueck, danach reicht ein Tag Ueberlappung.
   const days = link.last_check ? 2 : 14;
@@ -666,10 +686,7 @@ async function syncAll(env, db, ctx, only = null) {
 // bekommt es als Benachrichtigung und als Eintrag im Feed - einmal pro Woche.
 export async function bonusReport(env, db, now, { dry = false } = {}) {
   const out = [];
-  const settings = { ...DEFAULTS, start: weekOf(today()) };
-  for (const row of (await db.prepare("SELECT k,v FROM settings").all()).results) {
-    try { settings[row.k] = JSON.parse(row.v); } catch {}
-  }
+  const settings = await loadSettings(db);
   if (!settings.bonus) return out;
 
   const tz = settings.tz || "Europe/Berlin";
@@ -703,7 +720,7 @@ export async function bonusReport(env, db, now, { dry = false } = {}) {
 
     for (const sub of subs.filter((x) => x.member_id === member.id)) {
       try {
-        const status = await sendPush(env, sub, { title: "Das Programm", body: text, tag: "bonus-" + week });
+        const status = await sendPush(env, sub, { title: "Das Programm", body: text, tag: "bonus-" + week, url: "/#feed" });
         if (status === 404 || status === 410) await db.prepare("DELETE FROM subs WHERE device=?").bind(sub.device).run();
       } catch (e) { console.log("Guthaben-Meldung fehlgeschlagen", String(e)); }
     }
@@ -741,10 +758,7 @@ const streakOf = (entries, member, week, required, sickMax, start) => {
 // Was jetzt gerade anstünde. `dry` liefert es zurück, ohne zu senden.
 export async function runNudges(env, db, now, { dry = false, force = null } = {}) {
   const out = [];
-  const settings = { ...DEFAULTS, start: weekOf(today()) };
-  for (const row of (await db.prepare("SELECT k,v FROM settings").all()).results) {
-    try { settings[row.k] = JSON.parse(row.v); } catch {}
-  }
+  const settings = await loadSettings(db);
   if (!settings.nudges && !force) return out;
   if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return out;
 
@@ -755,7 +769,7 @@ export async function runNudges(env, db, now, { dry = false, force = null } = {}
   const sickMax = settings.sickMax ?? required;
 
   const [members, entries, subs] = await Promise.all([
-    db.prepare("SELECT id,name,joined FROM members").all().then((r) => r.results),
+    db.prepare("SELECT id,name,joined,lat,lon FROM members").all().then((r) => r.results),
     db.prepare("SELECT member_id,date,kind,units,sport FROM entries WHERE date >= ?")
       .bind(new Date(Date.parse(here.date) - 130 * 864e5).toISOString().slice(0, 10))
       .all().then((r) => r.results),
@@ -768,13 +782,21 @@ export async function runNudges(env, db, now, { dry = false, force = null } = {}
   const finished = members.filter((m) => standings.get(m.id).credit >= required);
   const ledger = settle({ members, entries, settings, today: here.date });
 
-  let weather = null;
-  if (settings.place) {
+  // Wetter: der Standort der Person, sonst der in den Einstellungen hinterlegte Ort.
+  const geoCache = new Map();
+  const weatherFor = async (member) => {
+    const key = member.lat != null ? member.lat + "," + member.lon : "place";
+    if (geoCache.has(key)) return geoCache.get(key);
+    let out = null;
     try {
-      const geo = await geocode(db, settings.place);
-      weather = await forecast(db, geo, tz);
+      const geo = member.lat != null
+        ? { lat: member.lat, lon: member.lon }
+        : settings.place ? await geocode(db, settings.place) : null;
+      out = geo ? await forecast(db, geo, tz) : null;
     } catch (e) { console.log("Wetter nicht abrufbar", String(e)); }
-  }
+    geoCache.set(key, out);
+    return out;
+  };
 
   for (const member of members) {
     const devices = subs.filter((x) => x.member_id === member.id);
@@ -812,7 +834,7 @@ export async function runNudges(env, db, now, { dry = false, force = null } = {}
         aheadOf: ahead.length ? ahead[0].name : null,
       },
       favourites(entries, member.id, here.date),
-      weather,
+      await weatherFor(member),
       (member.id * 2654435761 + Number(week.replace(/-/g, ""))) >>> 0
     );
 

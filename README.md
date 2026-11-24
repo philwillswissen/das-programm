@@ -25,17 +25,19 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 - **Anstupser** – Ein stündlicher Cron-Trigger prüft, wer zurückliegt. Mitte der Woche
   (mal Mittwoch, mal Donnerstag), zum Wochenende (Freitag oder Samstag) und am Sonntag
   als letzte Chance. Der Text richtet sich nach Serie, Lieblingssportarten, Gruppenlage
-  und – wenn ein Ort hinterlegt ist – nach dem Wetter von Open-Meteo. Höchstens einmal
+  und – wenn der Standort freigegeben ist – nach dem Wetter von Open-Meteo. Höchstens einmal
   je Art und Woche.
-- **Guthaben** (abschaltbar, standardmäßig aus) – Jede Einheit über dem Wochenziel
-  gibt ein Guthaben. Fehlt später eine Einheit, springen davon automatisch welche ein
-  (Standard: 3 je Einheit, einstellbar). Eine ganze Woche lässt sich nie decken: mindestens
-  ein eigener Eintrag – Sport oder Krankmeldung – muss stehen. Gesammelt wird erst ab dem
-  Tag, an dem die Regel eingeschaltet wurde. Sonntagabends sagt die App Bescheid, wenn das
-  Guthaben die Woche trägt – als Benachrichtigung und als Eintrag im Feed.
+- **Guthaben** (abschaltbar, standardmäßig aus) – Die dritte Einheit einer Woche gibt
+  1 Guthaben, die vierte 0,5, die fünfte 0,3, danach nichts mehr; höchstens 9 insgesamt.
+  Fehlt später eine Einheit, springen 3 davon automatisch ein (einstellbar) – aber nur,
+  wenn sie zu dem Zeitpunkt schon da waren, nie rückwirkend. Eine ganze Woche lässt sich
+  nie decken: mindestens ein eigener Eintrag – Sport oder Krankmeldung – muss stehen.
+  Gesammelt wird erst ab dem Tag, an dem die Regel eingeschaltet wurde. Sonntagabends
+  sagt die App Bescheid, wenn das Guthaben die Woche trägt – als Benachrichtigung und
+  als Eintrag im Feed. Ein i neben der Anzeige erklärt die Regeln.
 - **Automatisch eintragen** – Jede Person hinterlegt einmal ihre Athleten-ID und
   ihren API-Schlüssel von [intervals.icu](https://intervals.icu) (kostenlos). Der
-  stündliche Cron-Lauf holt neue Einheiten ab und trägt sie ein, samt Distanz, Dauer,
+  stündliche Cron-Lauf holt neue Einheiten ab 20 Minuten ab und trägt sie ein, samt Distanz, Dauer,
   Tempo, Anstieg, Puls und Kalorien. intervals.icu sammelt die Einheiten selbst aus
   Strava, Garmin, Wahoo, Polar und Suunto – damit braucht es bei keinem dieser Dienste
   ein Entwicklerkonto. Einheiten unter einer einstellbaren Mindestdauer werden

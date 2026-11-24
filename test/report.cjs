@@ -35,7 +35,7 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
     { member_id: 2, date: day(9), kind: "workout", sport: "Radfahren", meta: meta(30, 90), group_id: null },
     { member_id: 2, date: day(4), kind: "sick", units: 2, sport: null, meta: null, group_id: null },
   ];
-  const r = report({ members, entries, settings: { required: 2 }, today: day(0) });
+  const r = report({ members, entries, settings: { required: 2, start: day(30) }, today: day(0) });
 
   ok(r.weeks.length === 12, "zwölf Wochen im Verlauf");
   ok(r.members[1].sessions === 3, "Annas Einheiten (" + r.members[1].sessions + ")");
@@ -54,14 +54,32 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   const lastWeek = r.team.stacked[r.team.stacked.length - 1];
   ok(Object.values(lastWeek.byMember).reduce((a, b) => a + b, 0) >= 1, "die laufende Woche ist gefüllt");
   ok(r.members[1].avgMinutes === 45, "Durchschnittsdauer nur aus Einheiten mit Messwerten (" + r.members[1].avgMinutes + ")");
-  const leer = report({ members, entries: [], settings: { required: 2 }, today: day(0) });
+  const leer = report({ members, entries: [], settings: { required: 2, start: day(30) }, today: day(0) });
   ok(leer.team.sessions === 0 && leer.team.sports.length === 0, "ohne Einträge bleibt alles bei null");
+
+  console.log("\n== Erst ab dem Start der Challenge ==");
+  const mitAlt = [...entries, { member_id: 1, date: day(40), kind: "workout", sport: "Laufen", meta: meta(20, 100), group_id: null }];
+  const spaet = report({ members, entries: mitAlt, settings: { required: 2, start: day(30) }, today: day(0) });
+  ok(spaet.members[1].sessions === 3, "was vor dem Start lag, zählt nicht mit (" + spaet.members[1].sessions + ")");
+  ok(spaet.team.km === 45, "auch nicht in den Kilometern (" + spaet.team.km + ")");
+  const frueh = report({ members, entries: mitAlt, settings: { required: 2, start: day(60) }, today: day(0) });
+  ok(frueh.members[1].sessions === 4, "mit früherem Start zählt sie mit (" + frueh.members[1].sessions + ")");
+  const mitAelteren = [...mitAlt, { member_id: 1, date: day(20), kind: "workout", sport: "Laufen", meta: meta(7, 40), group_id: null }];
+  const alleDabei = report({ members, entries: mitAelteren, settings: { required: 2, start: day(30) }, today: day(0) });
+  ok(alleDabei.members[1].sessions === 4, "ohne Beitrittsdatum zählt alles seit dem Start (" + alleDabei.members[1].sessions + ")");
+  const spaeterDabei = report({
+    members: [{ id: 1, name: "Anna", joined: day(10) }, { id: 2, name: "Ben" }],
+    entries: mitAelteren, settings: { required: 2, start: day(30) }, today: day(0),
+  });
+  ok(spaeterDabei.members[1].sessions === 3, "wer später dazukommt, bekommt die Zeit davor nicht angerechnet (" + spaeterDabei.members[1].sessions + ")");
+  ok(spaeterDabei.team.sessions === 6, "in der Gruppe zählt sie trotzdem seit dem Start (" + spaeterDabei.team.sessions + ")");
 
   console.log("\n== In der App ==");
   const s0 = await api("state");
   for (const m of s0.data.members) await api("member/" + m.id, "DELETE");
-  const anna = (await api("member", "POST", { name: "Anna" })).data.id;
-  const ben = (await api("member", "POST", { name: "Ben" })).data.id;
+  await api("settings", "POST", { start: day(30) });
+  const anna = (await api("member", "POST", { name: "Anna", joined: day(30) })).data.id;
+  const ben = (await api("member", "POST", { name: "Ben", joined: day(30) })).data.id;
   for (const [mid, sport, km, min, back] of [
     [anna, "Laufen", 10, 60, 1], [anna, "Laufen", 8, 45, 3], [anna, "Bouldern", 0, 90, 8],
     [ben, "Radfahren", 32, 72, 2], [ben, "Schwimmen", 1.5, 30, 5], [ben, "Radfahren", 20, 50, 12],

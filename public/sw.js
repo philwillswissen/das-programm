@@ -39,17 +39,24 @@ self.addEventListener("push", e => {
       badge: "/icon-192.png?v=__V__",
       tag: d.tag || "dp",
       renotify: true,
-      data: { url: d.url || "/" },
+      data: { url: d.url || "/#feed" },
     }).then(() => self.clients.matchAll({ type: "window" }).then(ws => ws.forEach(w => w.postMessage("refresh"))))
   );
 });
 
 self.addEventListener("notificationclick", e => {
   e.notification.close();
-  const target = new URL(e.notification.data?.url || "/", location.origin).href;
+  const target = new URL(e.notification.data?.url || "/#feed", location.origin).href;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(ws => {
-      for (const w of ws) if ("focus" in w) return w.focus();
+      // Ein offenes Fenster holen wir nach vorn - und zeigen den Feed,
+      // denn darum geht es in der Nachricht.
+      for (const w of ws) {
+        if (!("focus" in w)) continue;
+        if ("navigate" in w) w.navigate(target).catch(() => {});
+        else w.postMessage("show-feed");
+        return w.focus();
+      }
       return self.clients.openWindow(target);
     })
   );

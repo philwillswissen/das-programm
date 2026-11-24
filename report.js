@@ -99,18 +99,27 @@ export function report({ members, entries, settings, today, span = 12 }) {
   const weeksBack = [];
   for (let i = span - 1; i >= 0; i--) weeksBack.push(addWeeks(cur, -i));
 
+  // Gezählt wird erst ab dem Start der Challenge - und je Person erst ab dem
+  // Tag, an dem sie dabei ist. Was davor in Strava lag, gehört nicht dazu.
+  const teamFrom = weekOf(settings.start || today);
+  const memberFrom = new Map(members.map((m) => [
+    m.id,
+    weekOf(m.joined && m.joined > (settings.start || "") ? m.joined : (settings.start || today)),
+  ]));
+
   const perMember = new Map(members.map((m) => [m.id, EMPTY()]));
   const team = EMPTY();
   const teamWeeks = new Map();            // Woche -> { memberId: Einheiten }
   const groups = new Set();
 
   for (const e of entries) {
+    const w = weekOf(e.date);
+    if (w < teamFrom) continue;
     const m = parseMeta(e.meta);
-    const acc = perMember.get(e.member_id);
+    const acc = (memberFrom.get(e.member_id) ?? teamFrom) <= w ? perMember.get(e.member_id) : null;
     if (acc) add(acc, e, m);
     add(team, e, m);
     if (e.kind !== "sick") {
-      const w = weekOf(e.date);
       const row = teamWeeks.get(w) || {};
       row[e.member_id] = (row[e.member_id] || 0) + 1;
       teamWeeks.set(w, row);
