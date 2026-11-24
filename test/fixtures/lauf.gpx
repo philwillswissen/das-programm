@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="Garmin Connect" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><time>2026-11-20T07:00:00.000Z</time></metadata>
+  <trk><name>Morgenlauf</name><type>running</type><trkseg>
+    <trkpt lat="52.520000" lon="13.405000"><ele>34.0</ele><time>2026-11-20T07:00:00.000Z</time></trkpt>
+    <trkpt lat="52.529000" lon="13.405000"><ele>35.0</ele><time>2026-11-20T07:05:00.000Z</time></trkpt>
+    <trkpt lat="52.538000" lon="13.405000"><ele>36.0</ele><time>2026-11-20T07:10:00.000Z</time></trkpt>
+    <trkpt lat="52.547000" lon="13.405000"><ele>37.0</ele><time>2026-11-20T07:15:00.000Z</time></trkpt>
+    <trkpt lat="52.556000" lon="13.405000"><ele>38.0</ele><time>2026-11-20T07:20:00.000Z</time></trkpt>
+  </trkseg></trk>
+</gpx>

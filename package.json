@@ -1,0 +1,16 @@
+{
+  "name": "das-programm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Das Programm – Sport-Challenge mit gemeinsamer Kasse (PWA auf Cloudflare Workers + D1)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test/run.mjs",
+    "db:console": "wrangler d1 execute sportkasse --remote --command 'select * from members'"
+  },
+  "devDependencies": {
+    "wrangler": "^4.46.0"
+  }
+}

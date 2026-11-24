@@ -1,0 +1,30 @@
+name = "das-programm"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+# Die Oberfläche steckt direkt im Worker-Bundle (siehe [[rules]]) –
+# kein separater Asset-Upload nötig.
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.json", "**/*.svg", "**/public/sw.js"]
+fallthrough = true
+
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sportkasse"
+database_id = "f846d535-aff2-4ebd-b062-7b4e2f91e952"
+
+[observability]
+enabled = true
+
+# Secrets (nicht hier eintragen):
+#   npx wrangler secret put VAPID_PUBLIC
+#   npx wrangler secret put VAPID_PRIVATE
+#   npx wrangler secret put VAPID_SUBJECT
+#   npx wrangler secret put PIN          # optional: Gruppen-PIN

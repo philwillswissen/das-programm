@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Das Programm</title>
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Das Programm">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --fg:#0b1220; --mut:#667085; --line:#e4e8ef;
+  --acc:#16a34a; --accd:#15803d; --bad:#dc2626; --warn:#d97706; --chip:#eef2f7;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#0b1220; --card:#151d2e; --fg:#eef2f7; --mut:#95a1b6; --line:#263147; --chip:#1d2739; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  background:var(--bg);color:var(--fg);
+  padding:max(10px,env(safe-area-inset-top)) 0 calc(76px + env(safe-area-inset-bottom));
+}
+main{max-width:620px;margin:0 auto;padding:0 14px}
+header{display:flex;align-items:center;gap:10px;margin:4px 0 14px}
+header h1{font-size:19px;margin:0;letter-spacing:-.01em}
+header .dot{width:26px;height:26px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+h2{margin:0 0 10px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em}
+.big{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.sub{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td:first-child,th:first-child{text-align:left;font-weight:600}
+.ok{color:var(--acc)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+input,select,textarea,button{font:inherit;width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);margin:5px 0;appearance:none}
+textarea{min-height:60px;resize:vertical}
+button{background:var(--acc);color:#fff;border:0;font-weight:700;cursor:pointer}
+button:active{background:var(--accd)}
+button.ghost{background:var(--chip);color:var(--fg)}
+button.s{width:auto;padding:8px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600}
+button.x{width:auto;padding:6px 10px;background:transparent;color:var(--mut);font-size:16px}
+label{font-size:13px;color:var(--mut);display:block;margin-top:10px}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1;margin:4px 0}
+.row>.x,.row>.s{flex:0 0 auto}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:9}
+nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:11px;font-weight:600}
+nav a b{display:block;font-size:19px;font-weight:400;line-height:1.3}
+nav a.on{color:var(--acc)}
+.item{padding:10px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.chip{display:inline-block;background:var(--chip);color:var(--mut);border-radius:999px;padding:2px 9px;font-size:12px;margin:3px 4px 0 0}
+img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top:8px;display:block;background:var(--chip)}
+.seg{display:flex;gap:6px;margin:6px 0}
+.seg button{flex:1;background:var(--chip);color:var(--fg);font-weight:600}
+.seg button.on{background:var(--acc);color:#fff}
+.hint{font-size:12px;color:var(--mut);margin-top:8px}
+.bar{height:6px;border-radius:4px;background:var(--chip);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.flex{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom));background:#0b1220;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:.95}
+</style>
+</head>
+<body>
+<main id="app"><div class="card">Lade…</div></main>
+<nav>
+  <a href="#home"><b>📊</b>Start</a>
+  <a href="#add"><b>➕</b>Eintrag</a>
+  <a href="#set"><b>⚙️</b>Einstellungen</a>
+</nav>
+<div class="toast" id="toast"></div>
+<script>
+/* ---------- Basis ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+const pad = n => String(n).padStart(2, "0");
+const todayISO = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const weekOf = s => { const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
+const addW = (w, n) => { const d = new Date(w + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 7 * n); return d.toISOString().slice(0, 10); };
+const dm = s => s.slice(8) + "." + s.slice(5, 7) + ".";
+const money = (n, c) => (Math.round(n * 100) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + c;
+
+let D = null, busy = false;
+let pin = localStorage.pin || "";
+let me = +localStorage.me || 0;
+const device = localStorage.device || (localStorage.device = (crypto.randomUUID ? crypto.randomUUID() : "d" + Date.now() + Math.random().toString(36).slice(2)));
+
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2600); }
+
+async function api(p, method = "GET", body, _retry = 0) {
+  const r = await fetch("/api/" + p, {
+    method,
+    headers: { "content-type": "application/json", "x-pin": pin },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401 && _retry < 2) {
+    const v = prompt("PIN der Gruppe:");
+    if (v === null) throw new Error("PIN nötig");
+    pin = v; localStorage.pin = pin;
+    return api(p, method, body, _retry + 1);
+  }
+  if (!r.ok && r.headers.get("content-type")?.includes("json")) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.error || "Fehler " + r.status);
+  }
+  if (!r.ok) throw new Error("Fehler " + r.status);
+  return r;
+}
+const get = p => api(p).then(r => r.json());
+
+async function load() {
+  try {
+    D = await get("state");
+    if (me && !D.members.some(m => m.id === me)) { me = 0; localStorage.removeItem("me"); }
+    render();
+  } catch (e) { $("#app").innerHTML = '<div class="card"><h2>Fehler</h2>' + esc(e.message) + '</div>'; }
+}
+
+/* ---------- Auswertung ---------- */
+const inWeek = (mid, w) => D.entries.filter(e => e.member_id === mid && weekOf(e.date) === w);
+const done = (mid, w) => inWeek(mid, w).filter(e => e.kind !== "sick").length;
+const sick = (mid, w) => inWeek(mid, w).filter(e => e.kind === "sick").reduce((a, e) => a + (e.units || 1), 0);
+const credit = (mid, w) => done(mid, w) + Math.min(sick(mid, w), D.settings.sickMax ?? D.settings.required);
+
+function weeksOf(member) {
+  const s = D.settings;
+  const from = weekOf((member.joined && member.joined > s.start) ? member.joined : s.start);
+  const cur = weekOf(todayISO());
+  const out = [];
+  for (let w = from, i = 0; w < cur && i < 520; w = addW(w, 1), i++) out.push(w);
+  return out;
+}
+
+function stats(member) {
+  const s = D.settings, cur = weekOf(todayISO()), past = weeksOf(member);
+  let missed = 0;
+  for (const w of past) if (credit(member.id, w) < s.required) missed++;
+  let streak = 0;
+  if (credit(member.id, cur) >= s.required) streak++;
+  for (let i = past.length - 1; i >= 0 && credit(member.id, past[i]) >= s.required; i--) streak++;
+  return {
+    missed, paid: missed * s.fine, streak,
+    sessions: D.entries.filter(e => e.member_id === member.id && e.kind !== "sick").length,
+    weeks: past.length,
+  };
+}
+
+/* ---------- Start ---------- */
+function viewHome() {
+  const s = D.settings, c = s.currency, cur = weekOf(todayISO());
+  if (!D.members.length) return onboarding();
+  const st = {}; for (const m of D.members) st[m.id] = stats(m);
+  const kasse = D.members.reduce((a, m) => a + st[m.id].paid, 0) - D.expenses.reduce((a, x) => a + x.amount, 0);
+  const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
+  const nameOf = id => esc(D.members.find(m => m.id === id)?.name || "?");
+  const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].paid - st[b.id].paid);
+
+  const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
+    <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
+
+  return whoCard + `
+  <div class="card">
+    <div class="flex"><div><h2>Kassenstand</h2><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div></div></div>
+    <div class="sub">${money(D.members.reduce((a, m) => a + st[m.id].paid, 0), c)} eingezahlt · ${money(D.expenses.reduce((a, x) => a + x.amount, 0), c)} ausgegeben</div>
+  </div>
+
+  <div class="card"><h2>Diese Woche · ab ${dm(cur)} · Ziel ${s.required}</h2><table>
+    ${D.members.map(m => {
+      const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
+      return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}
+        <div class="bar"><i style="width:${Math.min(100, cr / s.required * 100)}%"></i></div></td>
+        <td class="${ok ? "ok" : ""}">${d}${k ? " +" + k + "🤒" : ""} / ${s.required} ${ok ? "✓" : ""}</td>
+        <td>${st[m.id].streak ? "🔥 " + st[m.id].streak : "–"}</td></tr>`;
+    }).join("")}
+  </table><div class="hint">Wer das Ziel verpasst, zahlt ${money(s.fine, c)} in die Kasse.</div></div>
+
+  <div class="card"><h2>Letzte 4 Wochen</h2><table>
+    <tr><th></th>${w4.map(w => `<th>${dm(w)}${w === cur ? "*" : ""}</th>`).join("")}</tr>
+    ${D.members.map(m => `<tr><td>${esc(m.name)}</td>${w4.map(w => {
+      const cr = credit(m.id, w), counts = weeksOf(m).includes(w) || w === cur;
+      const cls = !counts ? "sub" : cr >= s.required ? "ok" : w === cur ? "warn" : "bad";
+      return `<td class="${cls}">${counts ? done(m.id, w) + (sick(m.id, w) ? "🤒" : "") : "–"}</td>`;
+    }).join("")}</tr>`).join("")}
+  </table><div class="hint">* laufende Woche</div></div>
+
+  <div class="card"><h2>Rangliste</h2><table>
+    <tr><th></th><th>Einheiten</th><th>Verpasst</th><th>Eingezahlt</th></tr>
+    ${board.map((m, i) => `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
+      <td>${st[m.id].sessions}</td><td>${st[m.id].missed}/${st[m.id].weeks}</td><td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
+  </table></div>
+
+  <div class="card"><h2>Verlauf</h2>
+    ${D.entries.slice(0, 20).map(e => `<div class="item">
+      <div class="flex"><div><b>${nameOf(e.member_id)}</b> <span class="sub">${dm(e.date)}</span></div>
+      <button class="x" onclick="delEntry(${e.id})">✕</button></div>
+      <div>${e.kind === "sick" ? "🤒 Krankmeldung (" + (e.units || 1) + ")" : "🏃 Sporteinheit"}</div>
+      ${e.note ? `<div class="sub">${esc(e.note)}</div>` : ""}
+      ${e.meta ? Object.entries(JSON.parse(e.meta)).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("") : ""}
+      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.id}" alt="">` : ""}
+    </div>`).join("") || '<div class="sub">Noch keine Einträge.</div>'}
+  </div>`;
+}
+
+function onboarding() {
+  return `<div class="card"><h2>Los geht's</h2>
+    <div class="sub">Trag einmal alle Teilnehmer ein – danach wählt jeder auf seinem Handy nur noch sich selbst aus.</div>
+    <input id="names" placeholder="Anna, Ben, Chris, Dani">
+    <button onclick="setupMembers()">Teilnehmer anlegen</button></div>`;
+}
+async function setupMembers() {
+  const names = $("#names").value.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+  if (!names.length) return toast("Bitte Namen eingeben.");
+  for (const name of names) await api("member", "POST", { name, joined: todayISO() });
+  toast("Angelegt.");
+  load();
+}
+function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); }
+
+/* ---------- Eintrag ---------- */
+function viewAdd() {
+  if (!D.members.length) return onboarding();
+  const s = D.settings;
+  return `<div class="card"><h2>Neuer Eintrag</h2>
+    <label>Für wen?</label>
+    <select id="who">${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+    <label>Was?</label>
+    <div class="seg"><button id="k-workout" class="on" onclick="setKind('workout')">🏃 Sporteinheit</button><button id="k-sick" onclick="setKind('sick')">🤒 Krank</button></div>
+    <div id="unitsBox" style="display:none"><label>Krankmeldung zählt als … Einheiten dieser Woche</label>
+      <select id="units">${Array.from({ length: Math.max(1, s.required) }, (_, i) => `<option value="${i + 1}"${i + 1 === Math.max(1, s.required) ? " selected" : ""}>${i + 1}</option>`).join("")}</select></div>
+    <label>Datum</label><input type="date" id="date" value="${todayISO()}" max="${todayISO()}">
+    <label>Kommentar (optional)</label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker"></textarea>
+    <label>Foto oder Aktivitätsdatei (optional)</label>
+    <input type="file" id="file" accept="image/*,.gpx,.tcx" onchange="preview()">
+    <div id="prev" class="sub"></div>
+    <button id="saveBtn" onclick="save()"${busy ? " disabled" : ""}>${busy ? "Speichere…" : "Speichern"}</button>
+    <div class="hint">GPX/TCX aus Strava, Garmin oder Komoot: Aktivität → Exportieren. Distanz, Dauer &amp; Tempo werden automatisch übernommen.</div>
+  </div>`;
+}
+let kind = "workout";
+function setKind(k) {
+  kind = k;
+  $("#k-workout").classList.toggle("on", k === "workout");
+  $("#k-sick").classList.toggle("on", k === "sick");
+  $("#unitsBox").style.display = k === "sick" ? "" : "none";
+}
+
+/* --- GPX / TCX --- */
+const els = (root, name) => [...root.getElementsByTagNameNS("*", name)];
+const txt = (root, name) => els(root, name)[0]?.textContent?.trim() || "";
+const num = (root, name) => parseFloat(txt(root, name).replace(",", ".")) || 0;
+const fmtDur = sec => sec >= 3600 ? Math.floor(sec / 3600) + ":" + pad(Math.round(sec % 3600 / 60)) + " h" : Math.round(sec / 60) + " min";
+const fmtPace = (sec, km) => { const t = Math.round(sec / km); return Math.floor(t / 60) + ":" + pad(t % 60) + " /km"; };
+
+function haversine(a1, o1, a2, o2) {
+  const R = Math.PI / 180;
+  const h = Math.sin((a2 - a1) * R / 2) ** 2 + Math.cos(a1 * R) * Math.cos(a2 * R) * Math.sin((o2 - o1) * R / 2) ** 2;
+  return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+function fromPoints(points, latAttr) {
+  let km = 0;
+  const co = points.map(latAttr);
+  for (let i = 1; i < co.length; i++) if (co[i] && co[i - 1]) km += haversine(co[i - 1][0], co[i - 1][1], co[i][0], co[i][1]);
+  return km;
+}
+function metaFrom(meta, km, sec, extra = {}) {
+  const out = {};
+  if (km > 0.05) out.Distanz = km.toFixed(2).replace(".", ",") + " km";
+  if (sec > 30) out.Dauer = fmtDur(sec);
+  if (km > 0.3 && sec > 60) out.Tempo = fmtPace(sec, km);
+  for (const [k, v] of Object.entries(extra)) if (v) out[k] = v;
+  return Object.keys(out).length ? out : null;
+}
+function parseGpx(xml) {
+  const pts = els(xml, "trkpt").concat(els(xml, "rtept"));
+  const km = fromPoints(pts, p => [+p.getAttribute("lat"), +p.getAttribute("lon")]);
+  const times = pts.map(p => Date.parse(txt(p, "time"))).filter(t => !isNaN(t));
+  const sec = times.length > 1 ? (Math.max(...times) - Math.min(...times)) / 1000 : 0;
+  const type = txt(xml, "type") || els(xml, "trk")[0] && txt(els(xml, "trk")[0], "type");
+  return metaFrom(null, km, sec, { Sport: type && type.length < 20 ? type : "" });
+}
+function parseTcx(xml) {
+  const laps = els(xml, "Lap");
+  let sec = 0, km = 0, kcal = 0, hr = [], dist = 0;
+  for (const l of laps) {
+    sec += num(l, "TotalTimeSeconds");
+    dist += num(l, "DistanceMeters");
+    kcal += num(l, "Calories");
+    const h = els(l, "AverageHeartRateBpm")[0];
+    if (h) { const v = num(h, "Value"); if (v) hr.push(v); }
+  }
+  km = dist / 1000;
+  const pts = els(xml, "Trackpoint");
+  if (km < 0.05) km = fromPoints(pts, p => { const pos = els(p, "Position")[0]; return pos ? [num(pos, "LatitudeDegrees"), num(pos, "LongitudeDegrees")] : null; });
+  if (sec < 30) {
+    const times = pts.map(p => Date.parse(txt(p, "Time"))).filter(t => !isNaN(t));
+    if (times.length > 1) sec = (Math.max(...times) - Math.min(...times)) / 1000;
+  }
+  const sport = els(xml, "Activity")[0]?.getAttribute("Sport") || "";
+  return metaFrom(null, km, sec, {
+    Puls: hr.length ? Math.round(hr.reduce((a, b) => a + b, 0) / hr.length) + " bpm" : "",
+    kcal: kcal ? String(Math.round(kcal)) : "",
+    Sport: sport && sport !== "Other" ? sport : "",
+  });
+}
+
+async function shrink(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Bild konnte nicht gelesen werden.")); i.src = url; });
+    const k = Math.min(1, 1100 / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    let q = 0.68, out = cv.toDataURL("image/jpeg", q);
+    while (out.length > 650000 && q > 0.3) { q -= 0.12; out = cv.toDataURL("image/jpeg", q); }
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+let pending = null;
+async function preview() {
+  pending = null;
+  const f = $("#file").files[0];
+  const box = $("#prev");
+  if (!f) { box.textContent = ""; return; }
+  box.textContent = "Lese Datei…";
+  try {
+    const low = f.name.toLowerCase();
+    if (low.endsWith(".gpx") || low.endsWith(".tcx")) {
+      const xml = new DOMParser().parseFromString(await f.text(), "application/xml");
+      if (els(xml, "parsererror").length || xml.querySelector("parsererror")) throw new Error("Datei nicht lesbar.");
+      const meta = low.endsWith(".gpx") ? parseGpx(xml) : parseTcx(xml);
+      if (!meta) throw new Error("Keine Aktivitätsdaten gefunden.");
+      pending = { meta };
+      box.innerHTML = Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("");
+    } else if (f.type.startsWith("image/")) {
+      const photo = await shrink(f);
+      pending = { photo };
+      box.innerHTML = `<img class="ph" src="${photo}" alt="">`;
+    } else throw new Error("Nur Bilder, GPX oder TCX.");
+  } catch (e) { box.innerHTML = '<span class="bad">' + esc(e.message) + "</span>"; }
+}
+
+async function save() {
+  if (busy) return; busy = true;
+  const btn = $("#saveBtn"); if (btn) { btn.disabled = true; btn.textContent = "Speichere…"; }
+  try {
+    const body = {
+      member_id: +$("#who").value, kind,
+      units: kind === "sick" ? +$("#units").value : 1,
+      date: $("#date").value || todayISO(),
+      note: $("#note").value, device,
+      ...(pending || {}),
+    };
+    await api("entry", "POST", body);
+    if (!me) { me = body.member_id; localStorage.me = me; }
+    pending = null;
+    toast(kind === "sick" ? "Krankmeldung gespeichert." : "Einheit gespeichert. 💪");
+    if (location.hash === "#add" || location.hash === "") location.hash = "#home";
+    await load();
+  } catch (e) { toast(e.message); }
+  finally {
+    busy = false;
+    const b = $("#saveBtn");
+    if (b) { b.disabled = false; b.textContent = "Speichern"; }
+  }
+}
+
+/* ---------- Einstellungen ---------- */
+function viewSet() {
+  const s = D.settings;
+  const pushState = localStorage.pushOn === "1";
+  const canPush = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  return `<div class="card"><h2>Regeln</h2>
+    <label>Einheiten pro Woche</label><input id="req" type="number" min="1" max="21" value="${s.required}">
+    <label>Strafe pro verpasster Woche</label><input id="fine" type="number" min="0" step="0.5" value="${s.fine}">
+    <label>Währung</label><input id="cur" value="${esc(s.currency)}">
+    <label>Krankmeldung ersetzt höchstens … Einheiten pro Woche</label><input id="sickMax" type="number" min="0" max="21" value="${s.sickMax ?? s.required}">
+    <label>Start der Challenge</label><input id="start" type="date" value="${esc(s.start)}">
+    <button onclick="saveSettings()">Regeln speichern</button></div>
+
+  <div class="card"><h2>Benachrichtigungen</h2>
+    ${!canPush ? '<div class="sub">Dieser Browser unterstützt keine Push-Benachrichtigungen.</div>'
+      : !D.vapidPublicKey ? '<div class="sub">Auf dem Server sind keine VAPID-Keys hinterlegt.</div>'
+      : `<div class="flex"><div><b>Push auf diesem Gerät</b><div class="sub">${pushState ? "aktiv" : "aus"}</div></div>
+         <button class="s" onclick="togglePush()">${pushState ? "Ausschalten" : "Einschalten"}</button></div>
+         ${pushState ? '<button class="ghost" onclick="testPush()">Testbenachrichtigung senden</button>' : ""}
+         ${ios && !standalone ? '<div class="hint">iPhone/iPad: Die App muss erst über „Teilen → Zum Home-Bildschirm" installiert und von dort geöffnet werden, sonst erlaubt iOS kein Push.</div>' : ""}
+         <div class="hint">Du bekommst eine Nachricht, wenn jemand anderes einen Eintrag macht – nicht für deine eigenen Einträge von diesem Gerät.</div>`}
+  </div>
+
+  <div class="card"><h2>Dieses Gerät gehört zu</h2>
+    <select onchange="pickMe(+this.value)">
+      <option value="0"${!me ? " selected" : ""}>– bitte wählen –</option>
+      ${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+    <div class="hint">Damit ist der Eintrag immer schon richtig vorbelegt. Kein Profil, kein Login.</div></div>
+
+  <div class="card"><h2>Teilnehmer</h2>
+    ${D.members.map(m => `<div class="row">
+      <input value="${esc(m.name)}" onchange="renameMember(${m.id}, this.value)">
+      <input type="date" value="${esc(m.joined || s.start)}" title="dabei seit" onchange="rejoinMember(${m.id}, this.value)">
+      <button class="x" onclick="delMember(${m.id})">✕</button></div>`).join("")}
+    <div class="row"><input id="nm" placeholder="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
+    <div class="hint">Das zweite Feld ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
+
+  <div class="card"><h2>Kasse</h2>
+    <label>Ausgabe buchen (z. B. Grillen)</label>
+    <div class="row"><input id="et" placeholder="Titel"><input id="ea" type="number" step="0.01" placeholder="Betrag"></div>
+    <button onclick="addExpense()">Buchen</button>
+    ${D.expenses.map(x => `<div class="item flex"><div>${dm(x.date)} · ${esc(x.title)} · <b>${money(x.amount, s.currency)}</b></div>
+      <button class="x" onclick="delExpense(${x.id})">✕</button></div>`).join("")}</div>
+
+  <div class="card"><h2>App</h2><div class="sub">Das Programm · Gerät: ${esc(device.slice(0, 8))}</div>
+    <button class="ghost" onclick="location.reload()">Neu laden</button></div>`;
+}
+
+const run = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
+const saveSettings = run(async () => {
+  await api("settings", "POST", {
+    required: +$("#req").value, fine: +$("#fine").value, currency: $("#cur").value,
+    sickMax: +$("#sickMax").value, start: $("#start").value,
+  });
+  toast("Gespeichert."); await load();
+});
+const addMember = run(async () => { const v = $("#nm").value.trim(); if (!v) return; await api("member", "POST", { name: v, joined: todayISO() }); await load(); });
+const renameMember = run(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
+const rejoinMember = run(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
+const delMember = run(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
+const delEntry = run(async id => { if (!confirm("Eintrag löschen?")) return; await api("entry/" + id, "DELETE"); await load(); });
+const delExpense = run(async id => { await api("expense/" + id, "DELETE"); await load(); });
+const addExpense = run(async () => {
+  const a = +$("#ea").value; if (!a) return toast("Betrag fehlt.");
+  await api("expense", "POST", { date: todayISO(), title: $("#et").value, amount: a }); await load();
+});
+
+/* ---------- Push ---------- */
+const keyToU8 = k => { const s = (k + "=".repeat((4 - k.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"); const r = atob(s); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
+
+const togglePush = run(async () => {
+  const reg = await navigator.serviceWorker.ready;
+  if (localStorage.pushOn === "1") {
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    await api("push/unsubscribe", "POST", { device });
+    localStorage.pushOn = "0";
+    toast("Push aus."); render(); return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return toast("Im Browser blockiert – bitte in den Website-Einstellungen erlauben.");
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToU8(D.vapidPublicKey) });
+  await api("push/subscribe", "POST", { device, member_id: me || null, sub: sub.toJSON() });
+  localStorage.pushOn = "1";
+  toast("Push ist aktiv."); render();
+});
+const testPush = run(async () => { await api("push/test", "POST", { device }); toast("Gesendet – Benachrichtigung kommt gleich."); });
+async function syncPushMember() {
+  if (localStorage.pushOn !== "1" || !("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await api("push/subscribe", "POST", { device, member_id: me || null, sub: sub.toJSON() });
+  } catch {}
+}
+
+/* ---------- Router ---------- */
+const views = { home: viewHome, add: viewAdd, set: viewSet };
+function render() {
+  if (!D) return;
+  const h = location.hash.slice(1);
+  const page = views[h] ? h : "home";
+  $("#app").innerHTML = `<header><div class="dot">P</div><h1>Das Programm</h1></header>` + views[page]();
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
+  if (page === "add") setKind(kind);
+  document.querySelectorAll("img[data-photo]").forEach(async img => {
+    try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
+  });
+}
+addEventListener("hashchange", render);
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+addEventListener("visibilitychange", () => { if (!document.hidden && D) load(); });
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => { if (e.data === "refresh") load(); });
+load();
+</script>
+</body>
+</html>
