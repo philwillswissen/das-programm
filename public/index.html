@@ -145,10 +145,10 @@ const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) ||
 const isSafari = () => /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios|chrome/i.test(navigator.userAgent);
 
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvent = e; if (load.offered) showInstall(); });
-addEventListener("appinstalled", () => { hideInstall(); localStorage.installed = "1"; toast("Installiert. 🎉"); });
+addEventListener("appinstalled", () => { hideInstall(); toast("Installiert. 🎉"); });
 
 function showInstall(force) {
-  if (installed() || localStorage.installed === "1" || pinResolve || !D) return;
+  if (installed() || pinResolve || !D) return;
   if (!force) {
     const later = +localStorage.installLater || 0;
     if (Date.now() - later < 7 * 864e5) return;      // nach „Später" eine Woche Ruhe
@@ -282,7 +282,7 @@ function viewHome() {
   const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
     <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
 
-  return whoCard + hero(st) + pushNudge() + `
+  return whoCard + hero(st) + installNudge() + pushNudge() + `
   <div class="card"><h2>Diese Woche · ab ${dm(cur)} · Ziel ${s.required}</h2><table>
     ${D.members.map(m => {
       const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
@@ -341,6 +341,14 @@ function hero(st) {
   return `<div class="card hero">${headline}
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div class="sub">${line}</div>${bonus}</div>`;
+}
+
+// Steht da, solange die App im Browser statt vom Home-Bildschirm läuft.
+function installNudge() {
+  if (installed() || !("serviceWorker" in navigator)) return "";
+  return `<div class="card nudge"><div class="ic">\u{1F4F2}</div><div class="tx"><b>Auf den Home-Bildschirm</b>
+    <div class="sub">Als App geöffnet startet sie schneller – und nur so kommen auf dem iPhone Benachrichtigungen an.</div></div>
+    <button class="s" onclick="showInstall(true)">Installieren</button></div>`;
 }
 
 // Bleibt stehen, bis Push auf diesem Gerät läuft.
@@ -576,6 +584,36 @@ const txt = (root, name) => els(root, name)[0]?.textContent?.trim() || "";
 const num = (root, name) => parseFloat(txt(root, name).replace(",", ".")) || 0;
 const fmtDur = sec => sec >= 3600 ? Math.floor(sec / 3600) + ":" + pad(Math.round(sec % 3600 / 60)) + " h" : Math.round(sec / 60) + " min";
 const fmtPace = (sec, km) => { const t = Math.round(sec / km); return Math.floor(t / 60) + ":" + pad(t % 60) + " /km"; };
+const fmtPace100 = (sec, km) => { const t = Math.round(sec / (km * 10)); return Math.floor(t / 60) + ":" + pad(t % 60) + " /100 m"; };
+const fmtKmh = (sec, km) => (km / (sec / 3600)).toFixed(1).replace(".", ",") + " km/h";
+
+// Bei was man rollt oder gleitet, sagt km/h mehr als Minuten pro Kilometer.
+const AS_KMH = new Set(["Radfahren", "Rennrad", "Mountainbike", "Gravelbike", "E-Bike",
+  "Indoor-Cycling", "Spinning", "Skifahren", "Snowboard", "Langlauf", "Skitour", "Rodeln",
+  "Inlineskaten", "Skateboard", "Eislaufen", "Reiten", "Segeln", "Kajak", "Kanu",
+  "Stand-up-Paddling", "Surfen", "Kitesurfen", "Rudern", "Ruderergometer"]);
+// Im Wasser rechnet man je 100 Meter.
+const AS_100M = new Set(["Schwimmen", "Freiwasserschwimmen"]);
+
+function speedOf(sec, km, sport) {
+  if (!(km > 0.3 && sec > 60)) return null;
+  if (AS_100M.has(sport)) return ["Tempo", fmtPace100(sec, km)];
+  if (AS_KMH.has(sport)) return ["Schnitt", fmtKmh(sec, km)];
+  if (!sport) return km / (sec / 3600) >= 12 ? ["Schnitt", fmtKmh(sec, km)] : ["Tempo", fmtPace(sec, km)];
+  return ["Tempo", fmtPace(sec, km)];
+}
+
+// Anstieg mit Schwelle, damit GPS-Rauschen keine Berge erfindet.
+function climbOf(elevations) {
+  const e = elevations.filter(x => Number.isFinite(x));
+  if (e.length < 3) return 0;
+  let gain = 0, ref = e[0];
+  for (const v of e) {
+    if (v > ref + 3) { gain += v - ref; ref = v; }
+    else if (v < ref) ref = v;
+  }
+  return Math.round(gain);
+}
 
 function haversine(a1, o1, a2, o2) {
   const R = Math.PI / 180;
@@ -588,12 +626,19 @@ function fromPoints(points, latAttr) {
   for (let i = 1; i < co.length; i++) if (co[i] && co[i - 1]) km += haversine(co[i - 1][0], co[i - 1][1], co[i][0], co[i][1]);
   return km;
 }
-function metaFrom(meta, km, sec, extra = {}) {
+// Aus den rohen Werten wird die Anzeige - abhaengig davon, welche Sportart
+// gerade im Feld steht. Wechselt sie, rechnet buildMeta neu.
+function buildMeta(raw, sport) {
+  if (!raw) return null;
+  const { km = 0, sec = 0, climb = 0, hr = 0, kcal = 0 } = raw;
   const out = {};
   if (km > 0.05) out.Distanz = km.toFixed(2).replace(".", ",") + " km";
   if (sec > 30) out.Dauer = fmtDur(sec);
-  if (km > 0.3 && sec > 60) out.Tempo = fmtPace(sec, km);
-  for (const [k, v] of Object.entries(extra)) if (v) out[k] = v;
+  const sp = speedOf(sec, km, sport);
+  if (sp) out[sp[0]] = sp[1];
+  if (climb >= 20) out["Anstieg"] = climb + " hm";
+  if (hr) out.Puls = Math.round(hr) + " bpm";
+  if (kcal) out.kcal = String(Math.round(kcal));
   return Object.keys(out).length ? out : null;
 }
 function parseGpx(xml) {
@@ -601,8 +646,9 @@ function parseGpx(xml) {
   const km = fromPoints(pts, p => [+p.getAttribute("lat"), +p.getAttribute("lon")]);
   const times = pts.map(p => Date.parse(txt(p, "time"))).filter(t => !isNaN(t));
   const sec = times.length > 1 ? (Math.max(...times) - Math.min(...times)) / 1000 : 0;
-  const type = txt(xml, "type") || els(xml, "trk")[0] && txt(els(xml, "trk")[0], "type");
-  return metaFrom(null, km, sec, { Sport: type && type.length < 20 ? type : "" });
+  const climb = climbOf(pts.map(p => num(p, "ele")));
+  const type = txt(xml, "type") || (els(xml, "trk")[0] && txt(els(xml, "trk")[0], "type"));
+  return { km, sec, climb, sport: type && type.length < 20 ? type : "" };
 }
 function parseTcx(xml) {
   const laps = els(xml, "Lap");
@@ -621,12 +667,13 @@ function parseTcx(xml) {
     const times = pts.map(p => Date.parse(txt(p, "Time"))).filter(t => !isNaN(t));
     if (times.length > 1) sec = (Math.max(...times) - Math.min(...times)) / 1000;
   }
+  const climb = climbOf(pts.map(p => num(p, "AltitudeMeters")));
   const sport = els(xml, "Activity")[0]?.getAttribute("Sport") || "";
-  return metaFrom(null, km, sec, {
-    Puls: hr.length ? Math.round(hr.reduce((a, b) => a + b, 0) / hr.length) + " bpm" : "",
-    kcal: kcal ? String(Math.round(kcal)) : "",
-    Sport: sport && sport !== "Other" ? sport : "",
-  });
+  return {
+    km, sec, climb, kcal,
+    hr: hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 0,
+    sport: sport && sport !== "Other" ? sport : "",
+  };
 }
 
 async function shrink(file) {
@@ -644,6 +691,18 @@ async function shrink(file) {
 }
 
 let pending = null;
+function showChips(meta) {
+  const box = $("#prev");
+  if (box) box.innerHTML = Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("");
+}
+// Wechselt die Sportart, wechselt auch die Einheit: 5:22 /km oder 27,0 km/h.
+function resyncMeta() {
+  if (!pending?.raw) return;
+  const meta = buildMeta(pending.raw, normSport($("#sport")?.value));
+  if (!meta) return;
+  pending.meta = meta;
+  showChips(meta);
+}
 async function preview() {
   pending = null;
   const f = $("#file").files[0];
@@ -655,15 +714,12 @@ async function preview() {
     if (low.endsWith(".gpx") || low.endsWith(".tcx")) {
       const xml = new DOMParser().parseFromString(await f.text(), "application/xml");
       if (els(xml, "parsererror").length || xml.querySelector("parsererror")) throw new Error("Datei nicht lesbar.");
-      const meta = low.endsWith(".gpx") ? parseGpx(xml) : parseTcx(xml);
+      const raw = low.endsWith(".gpx") ? parseGpx(xml) : parseTcx(xml);
+      if (raw.sport) { const field = $("#sport"); if (field) field.value = normSport(raw.sport); }
+      const meta = buildMeta(raw, normSport($("#sport")?.value));
       if (!meta) throw new Error("Keine Aktivitätsdaten gefunden.");
-      pending = { meta };
-      if (meta.Sport) {
-        const field = $("#sport");
-        if (field) field.value = normSport(meta.Sport);
-        delete meta.Sport;
-      }
-      box.innerHTML = Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("");
+      pending = { meta, raw };
+      showChips(meta);
     } else if (f.type.startsWith("image/")) {
       const photo = await shrink(f);
       pending = { photo };
@@ -863,7 +919,11 @@ function render() {
   const page = views[h] ? h : "home";
   $("#app").innerHTML = `<header><img class="dot" src="/icon.svg?v=__V__" alt=""><h1>Das Programm</h1></header>` + views[page]();
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
-  if (page === "add") { setKind(kind); paintCrew(); const w = $("#who"); if (w) w.onchange = paintCrew; }
+  if (page === "add") {
+    setKind(kind); paintCrew();
+    const w = $("#who"); if (w) w.onchange = paintCrew;
+    const sp = $("#sport"); if (sp) sp.oninput = resyncMeta;
+  }
   document.querySelectorAll("img[data-photo]").forEach(async img => {
     try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
   });

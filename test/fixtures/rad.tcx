@@ -8,8 +8,9 @@
    <Calories>410</Calories>
    <AverageHeartRateBpm><Value>138</Value></AverageHeartRateBpm>
    <Track>
-    <Trackpoint><Time>2026-11-21T16:00:00Z</Time><Position><LatitudeDegrees>52.52</LatitudeDegrees><LongitudeDegrees>13.40</LongitudeDegrees></Position></Trackpoint>
-    <Trackpoint><Time>2026-11-21T16:30:00Z</Time><Position><LatitudeDegrees>52.60</LatitudeDegrees><LongitudeDegrees>13.45</LongitudeDegrees></Position></Trackpoint>
+    <Trackpoint><Time>2026-11-21T16:00:00Z</Time><Position><LatitudeDegrees>52.52</LatitudeDegrees><LongitudeDegrees>13.40</LongitudeDegrees></Position><AltitudeMeters>500.0</AltitudeMeters></Trackpoint>
+    <Trackpoint><Time>2026-11-21T16:30:00Z</Time><Position><LatitudeDegrees>52.60</LatitudeDegrees><LongitudeDegrees>13.45</LongitudeDegrees></Position><AltitudeMeters>640.0</AltitudeMeters></Trackpoint>
+   <Trackpoint><Time>2026-11-21T16:15:00Z</Time><Position><LatitudeDegrees>52.56</LatitudeDegrees><LongitudeDegrees>13.43</LongitudeDegrees></Position><AltitudeMeters>570.0</AltitudeMeters></Trackpoint>
    </Track>
   </Lap>
   <Lap StartTime="2026-11-21T16:30:00Z">

@@ -146,7 +146,8 @@ const api = (p, method = "GET", body) =>
   const gpxChips = await page.$$eval("#prev .chip", els => els.map(e => e.textContent));
   ok(gpxChips.some(c => c.startsWith("Distanz") && c.includes("4,0")), "GPX: Distanz erkannt (" + gpxChips.join(" ") + ")");
   ok(gpxChips.some(c => c === "Dauer: 20 min"), "GPX: Dauer erkannt");
-  ok(gpxChips.some(c => /^Tempo: \d+:[0-5]\d \/km$/.test(c)), "GPX: Tempo korrekt formatiert (" + gpxChips.find(c => c.startsWith("Tempo")) + ")");
+  ok(gpxChips.some(c => /^Tempo: \d+:[0-5]\d \/km$/.test(c)), "GPX: Laufen bekommt Minuten pro Kilometer (" + gpxChips.find(c => c.startsWith("Tempo")) + ")");
+  ok(gpxChips.includes("Anstieg: 116 hm"), "GPX: Anstieg aus den Hoehenangaben (" + gpxChips.find(c => c.startsWith("Anstieg")) + ")");
   ok(await page.inputValue("#sport") === "Laufen", "GPX: „running“ füllt die Sportart als „Laufen“");
   await page.fill("#note", "Morgenlauf im Park");
   await page.click("#saveBtn:not([disabled])");
@@ -159,12 +160,26 @@ const api = (p, method = "GET", body) =>
   const tcx = await page.$$eval("#prev .chip", els => els.map(e => e.textContent));
   ok(tcx.includes("Distanz: 18,00 km"), "TCX: Distanz aus beiden Runden summiert (" + tcx.join(" ") + ")");
   ok(tcx.includes("Dauer: 45 min"), "TCX: Dauer summiert");
+  ok(tcx.some(c => /^Schnitt: 24,0 km\/h$/.test(c)), "TCX: Radfahren bekommt km/h statt min/km (" + tcx.find(c => c.startsWith("Schnitt")) + ")");
+  ok(!tcx.some(c => c.startsWith("Tempo")), "TCX: und kein Tempo in Minuten");
+  ok(tcx.some(c => /^Anstieg: \d+ hm$/.test(c)), "TCX: Anstieg aus den Hoehenangaben (" + tcx.find(c => c.startsWith("Anstieg")) + ")");
   ok(tcx.includes("Puls: 140 bpm"), "TCX: Durchschnittspuls");
   ok(tcx.includes("kcal: 600"), "TCX: Kalorien summiert");
   ok(!tcx.some(c => c.startsWith("Sport:")), "TCX: Sportart steht nicht mehr als Chip");
   ok(await page.inputValue("#sport") === "Radfahren", "TCX: „Biking“ füllt die Sportart als „Radfahren“");
+  await page.fill("#sport", "Laufen");
+  await page.waitForFunction(() => [...document.querySelectorAll("#prev .chip")].some(c => c.textContent.startsWith("Tempo")));
+  const asRun = await page.$$eval("#prev .chip", els => els.map(e => e.textContent));
+  ok(asRun.some(c => /^Tempo: \d+:[0-5]\d \/km$/.test(c)), "Sportart auf Laufen gewechselt -> wieder min/km (" + asRun.find(c => c.startsWith("Tempo")) + ")");
+  await page.fill("#sport", "Schwimmen");
+  await page.waitForFunction(() => [...document.querySelectorAll("#prev .chip")].some(c => c.textContent.includes("/100 m")));
+  const asSwim = await page.$$eval("#prev .chip", els => els.map(e => e.textContent));
+  ok(asSwim.some(c => c.includes("/100 m")), "Schwimmen rechnet je 100 Meter (" + asSwim.find(c => c.startsWith("Tempo")) + ")");
+  await page.fill("#sport", "Radfahren");
+  await page.waitForFunction(() => [...document.querySelectorAll("#prev .chip")].some(c => c.textContent.startsWith("Schnitt")));
   await page.click("#saveBtn:not([disabled])");
   await go("feed", '.post:has-text("18,00 km")');
+  ok((await page.textContent('.post:has-text("18,00 km")')).includes("km/h"), "gespeichert wurde, was zuletzt angezeigt war");
   ok(true, "TCX-Einheit gespeichert");
 
   console.log("\n== Sportart ==");
@@ -244,6 +259,7 @@ const api = (p, method = "GET", body) =>
   const bodyTx = await page.textContent("body");
   ok(bodyTx.includes("Kassenstand"), "Kassenstand ist weiterhin da");
   ok(bodyTx.indexOf("Diese Woche") < bodyTx.indexOf("Kassenstand"), "Kassenstand steht jetzt weiter unten");
+  ok(bodyTx.includes("Auf den Home-Bildschirm"), "Installationshinweis steht auf der Startseite");
   ok(bodyTx.includes("Benachrichtigungen einschalten") || bodyTx.includes("Home-Bildschirm"),
      "Aufforderung fuer Benachrichtigungen steht auf der Startseite");
 
