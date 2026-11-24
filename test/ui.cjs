@@ -56,7 +56,7 @@ const api = (p, method = "GET", body) =>
     ok(true, "falsche PIN wird abgewiesen und erneut gefragt");
     await ap.fill("#pinIn", PIN);
     await ap.click('button:has-text("Weiter")');
-    await ap.waitForSelector('h2:has-text("Los geht\'s"), h2:has-text("Kassenstand")');
+    await ap.waitForSelector('h2:has-text("Los geht\'s"), h2:has-text("Kasse")');
     ok(true, "richtige PIN schaltet die App frei");
     ok(await ap.evaluate(() => localStorage.pin) === PIN, "Gerät merkt sich die PIN");
     const low = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });
@@ -129,7 +129,7 @@ const api = (p, method = "GET", body) =>
 
   await page.fill("#names", "Anna, Ben, Chris");
   await page.click("text=Teilnehmer anlegen");
-  await page.waitForSelector("text=Kassenstand");
+  await page.waitForSelector('.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")');
   ok((await api("state")).members.length === 3, "drei Teilnehmer über die Oberfläche angelegt");
   ok(await page.getByText("Wer bist du?").isVisible(), "Gerät fragt einmalig nach der Person");
 
@@ -257,8 +257,8 @@ const api = (p, method = "GET", body) =>
   const heroTx = (await page.textContent(".hero")).replace(/\s+/g, " ").trim();
   ok(/\u{1F525}|\u{1F4AA}/u.test(heroTx), "Hero motiviert: " + heroTx.slice(0, 55));
   const bodyTx = await page.textContent("body");
-  ok(bodyTx.includes("Kassenstand"), "Kassenstand ist weiterhin da");
-  ok(bodyTx.indexOf("Diese Woche") < bodyTx.indexOf("Kassenstand"), "Kassenstand steht jetzt weiter unten");
+  ok(bodyTx.includes("Kasse") && /Angesammelt/.test(bodyTx), "die Kasse steht weiterhin da, jetzt je Person");
+  ok(bodyTx.indexOf("Diese Woche") < bodyTx.indexOf("Angesammelt"), "die Kasse steht weiter unten");
   ok(bodyTx.includes("Auf den Home-Bildschirm"), "Installationshinweis steht auf der Startseite");
   ok(bodyTx.includes("Benachrichtigungen einschalten") || bodyTx.includes("Home-Bildschirm"),
      "Aufforderung fuer Benachrichtigungen steht auf der Startseite");
@@ -285,7 +285,7 @@ const api = (p, method = "GET", body) =>
     return x.settings.required === 3 ? x : null;
   }) || (await api("state"));
   ok(s2.settings.required === 3 && s2.settings.fine === 25 && s2.settings.currency === "CHF", "Regeln frei konfigurierbar und gespeichert");
-  await go("home", 'h2:has-text("Kassenstand")');
+  await go("home", '.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")');
   ok((await page.textContent("body")).includes("CHF"), "Währung schlägt in der Auswertung durch");
 
   console.log("\n== Kasse ==");
@@ -355,7 +355,7 @@ const api = (p, method = "GET", body) =>
   console.log("\n== Robustheit ==");
   await page.goto(BASE + "/#unsinn", { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
-  ok((await page.textContent("body")).includes("Kassenstand"), "unbekannte Route fällt auf die Startseite zurück");
+  ok((await page.textContent("body")).includes("Diese Woche"), "unbekannte Route fällt auf die Startseite zurück");
   await page.goto(BASE + "/irgendwas", { waitUntil: "networkidle" });
   ok((await page.title()) === "Das Programm", "unbekannter Pfad liefert die App (SPA-Fallback)");
 

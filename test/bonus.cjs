@@ -52,7 +52,7 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   console.log("\n== Automatisch einsetzen ==");
   r = run({ [W[0]]: { work: 4 }, [W[1]]: { work: 4 }, [W[2]]: { work: 1 } }, W[3]);
   ok(r.credits === 0 && r.saved === 1 && r.missed === 0, "zwei starke Wochen (3,0) decken eine fehlende Einheit");
-  ok(r.paid === 0, "keine Strafe fällig");
+  ok(r.owed === 0, "keine Strafe fällig");
   ok(r.streak === 3, "die Serie bleibt erhalten (" + r.streak + ")");
 
   r = run({ [W[0]]: { work: 4 }, [W[1]]: { work: 1 } }, W[2]);
@@ -157,7 +157,7 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   ok(annaOhne.saved === 0, "keine Woche gilt mehr als gerettet");
   ok(annaOhne.missed >= mitGuthaben.missed, "verpasste Wochen werden wieder voll gezaehlt (" +
      mitGuthaben.missed + " -> " + annaOhne.missed + ")");
-  ok(annaOhne.paid === annaOhne.missed * ohne.settings.fine, "die Strafe passt zur Zahl der verpassten Wochen");
+  ok(annaOhne.owed === annaOhne.missed * ohne.settings.fine, "die Strafe passt zur Zahl der verpassten Wochen");
   ok(ohne.settings.bonusSince === "", "der Einschalttag ist vergessen");
 
   // Und wieder an: es beginnt von vorne, nicht rueckwirkend.

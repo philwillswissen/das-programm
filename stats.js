@@ -29,6 +29,7 @@ export const CREDIT_STEPS = [1, 0.5, 0.3];
 export const MAX_CREDITS = 9;
 
 const round1 = (n) => Math.round(n * 10) / 10;
+const round2 = (n) => Math.round(n * 100) / 100;
 
 export function creditsEarned(done, required) {
   let sum = 0;
@@ -47,7 +48,7 @@ export function creditsEarned(done, required) {
  * Die zeitliche Reihenfolge ist der Kern: Guthaben muss in der Woche, die es
  * rettet, schon dagewesen sein. Rückwirkend geht nichts.
  */
-export function settle({ members, entries, settings, today }) {
+export function settle({ members, entries, expenses = [], settings, today }) {
   const required = Math.max(1, Number(settings.required) || 2);
   const sickMax = Number.isFinite(settings.sickMax) ? settings.sickMax : required;
   const cost = Math.max(1, Number(settings.bonusCost) || 3);
@@ -106,11 +107,16 @@ export function settle({ members, entries, settings, today }) {
         (e) => e.member_id === m.id && e.kind !== "sick" && weekOf(e.date) >= from
       ).length,
       weeks, missed, saved, spent,
-      paid: missed * (Number(settings.fine) || 0),
+      // Was zusammengekommen ist, was die Person davon schon ausgelegt hat,
+      // und was unterm Strich bleibt. Niemand zahlt in einen Topf ein - wer
+      // etwas fuer die Gruppe bezahlt, begleicht damit seine Schulden.
+      owed: round2(missed * (Number(settings.fine) || 0)),
+      settled: round2(expenses.filter((x) => x.member_id === m.id).reduce((a, x) => a + (Number(x.amount) || 0), 0)),
       credits, pending: round1(Math.max(0, pending)), streak, maxCredits: MAX_CREDITS,
       week: { done: now.done, sick: now.sickUnits, credit: now.base, left, canRescue },
       rescueCost: left * cost,
     };
+    out[m.id].balance = round2(out[m.id].settled - out[m.id].owed);
   }
   return out;
 }

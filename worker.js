@@ -98,6 +98,7 @@ const ALTERS = [
   "ALTER TABLE entries ADD COLUMN sport TEXT",
   "ALTER TABLE entries ADD COLUMN group_id TEXT",
   "ALTER TABLE entries ADD COLUMN ext_id TEXT",
+  "ALTER TABLE expenses ADD COLUMN member_id INTEGER",
   "ALTER TABLE members ADD COLUMN lat REAL",
   "ALTER TABLE members ADD COLUMN lon REAL",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext_id) WHERE ext_id IS NOT NULL",
@@ -280,7 +281,7 @@ export default {
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
-          all("SELECT id,date,title,amount FROM expenses ORDER BY date DESC, id DESC"),
+          all("SELECT id,date,title,amount,member_id FROM expenses ORDER BY date DESC, id DESC"),
           all("SELECT id,member_id,sport,date,time,note FROM plans WHERE date >= date('now','-1 day') ORDER BY date, time"),
           all("SELECT plan_id,member_id FROM plan_joins"),
           all("SELECT id,member_id,date,kind,text FROM events ORDER BY date DESC, id DESC LIMIT 60"),
@@ -293,7 +294,7 @@ export default {
           expenses,
           plans: plans.map((p) => ({ ...p, joined: joins.filter((j) => j.plan_id === p.id).map((j) => j.member_id) })),
           events,
-          stats: settle({ members, entries, settings, today: today() }),
+          stats: settle({ members, entries, expenses, settings, today: today() }),
           links,
           vapidPublicKey: env.VAPID_PUBLIC || null,
         });
@@ -393,6 +394,7 @@ export default {
             db.prepare("DELETE FROM plan_joins WHERE member_id=?").bind(m[2]),
             db.prepare("DELETE FROM plans WHERE member_id=?").bind(m[2]),
             db.prepare("DELETE FROM links WHERE member_id=?").bind(m[2]),
+            db.prepare("UPDATE expenses SET member_id=NULL WHERE member_id=?").bind(m[2]),
           ]);
         }
         return json({ ok: true });
@@ -461,9 +463,13 @@ export default {
       if (path === "/api/expense" && method === "POST") {
         const amount = Number(body.amount);
         if (!isFinite(amount) || amount === 0) return json({ error: "Betrag fehlt." }, 400);
+        const payer = Number(body.member_id);
+        const who = Number.isInteger(payer)
+          ? await db.prepare("SELECT id FROM members WHERE id=?").bind(payer).first()
+          : null;
         await db
-          .prepare("INSERT INTO expenses(date,title,amount) VALUES(?,?,?)")
-          .bind(isDate(body.date) ? body.date : today(), clean(body.title, 60) || "Ausgabe", amount)
+          .prepare("INSERT INTO expenses(date,title,amount,member_id) VALUES(?,?,?,?)")
+          .bind(isDate(body.date) ? body.date : today(), clean(body.title, 60) || "Ausgabe", amount, who?.id ?? null)
           .run();
         return json({ ok: true });
       }

@@ -59,6 +59,10 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   dokumentiert, alle bekommen die Einheit. Im Feed stehen diese als ein Beitrag.
   Aus dem Feed heraus kann man eine gemeinsame Einheit vorschlagen, die anderen
   bekommen die Frage als Benachrichtigung und sagen per Knopf zu.
+- **Kasse** – Es gibt keinen Topf, in den jemand vorher einzahlt. Wer eine Woche
+  verpasst, sammelt Schulden an. Bezahlt jemand etwas für die Gruppe, bucht er es
+  auf sich – das begleicht seine Schulden und kann ihn ins Plus bringen. Die
+  Startseite zeigt je Person angesammelt, gezahlt und den Saldo.
 - **Einstellungen** – Einheiten pro Woche, Strafbetrag, Währung, Startdatum, wie viele
   Einheiten eine Krankmeldung ersetzt, Teilnehmer (samt „dabei seit") und Ausgaben
   aus der Kasse. Alles frei konfigurierbar.

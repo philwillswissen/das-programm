@@ -39,6 +39,7 @@ h2{margin:0 0 10px;font-size:12px;font-weight:700;color:var(--mut);text-transfor
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+.nw{white-space:nowrap}
 tr:last-child td{border-bottom:0}
 td:first-child,th:first-child{text-align:left;font-weight:600}
 .ok{color:var(--acc)} .bad{color:var(--bad)} .warn{color:var(--warn)}
@@ -197,6 +198,7 @@ const relDay = iso => {
   if (diff > 0 && diff < 7) return WD[d.getDay()];
   return WD[d.getDay()].slice(0, 2) + ", " + dm(iso) + (d.getFullYear() !== t.getFullYear() ? d.getFullYear() : "");
 };
+const plain = n => (Math.round(n * 100) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (n, c) => (Math.round(n * 100) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + c;
 
 /* ---------- Installation ---------- */
@@ -256,6 +258,16 @@ const INFOS = {
        stehen, Sport oder Krankmeldung. Wer eine Woche gar nichts macht, zahlt.</p>
     <p>Ihr könnt die Regel jederzeit wieder ausschalten – dann rechnet die Kasse
        sofort wieder ohne Guthaben, auch für die Wochen davor. Nichts geht kaputt.</p>`],
+  kasse: ["Wie die Kasse funktioniert", `
+    <p>Es gibt keinen Topf, in den jemand vorher einzahlt. Wer eine Woche verpasst,
+       sammelt <b>Schulden</b> an – die stehen in der Spalte <b>Angesammelt</b>.</p>
+    <p>Unternehmt ihr etwas und jemand bezahlt es, bucht er es hier auf sich.
+       Der Betrag landet bei ihm unter <b>Gezahlt</b> und begleicht seine Schulden.</p>
+    <p>Der <b>Saldo</b> ist die Differenz: ein Minus heißt, die Person schuldet der
+       Gruppe noch etwas. Ein Plus heißt, sie hat mehr ausgelegt als fällig war –
+       das holt sie beim nächsten Mal wieder rein.</p>
+    <p>Die große Zahl oben ist, was insgesamt zusammengekommen und noch nicht
+       ausgegeben ist. So viel könnt ihr also noch verplanen.</p>`],
   anstupser: ["Wann die App sich meldet", `
     <p>Nur wenn du hinterherhinkst, und höchstens einmal je Gelegenheit:</p>
     <ul><li><b>Mitte der Woche</b>, wenn noch gar nichts steht – mal mittwochs, mal donnerstags,
@@ -378,9 +390,12 @@ function viewHome() {
   const s = D.settings, c = s.currency, cur = weekOf(todayISO());
   if (!D.members.length) return onboarding();
   const st = D.stats || {};
-  const kasse = D.members.reduce((a, m) => a + st[m.id].paid, 0) - D.expenses.reduce((a, x) => a + x.amount, 0);
+  const angesammelt = D.members.reduce((a, m) => a + st[m.id].owed, 0);
+  const ausgegeben = D.expenses.reduce((a, x) => a + x.amount, 0);
+  const kasse = angesammelt - ausgegeben;
+  const ohnePerson = D.expenses.filter(x => !x.member_id).reduce((a, x) => a + x.amount, 0);
   const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
-  const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].paid - st[b.id].paid);
+  const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].owed - st[b.id].owed);
 
   const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
     <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
@@ -406,17 +421,32 @@ function viewHome() {
   </table><div class="hint">* laufende Woche</div></div>
 
   <div class="card"><h2>Rangliste</h2><table>
-    <tr><th></th><th>Einheiten</th>${s.bonus ? "<th>Guthaben</th>" : ""}<th>Verpasst</th><th>Eingezahlt</th></tr>
+    <tr><th></th><th>Einheiten</th>${s.bonus ? "<th>Guthaben</th>" : ""}<th>Verpasst</th><th>Angesammelt</th></tr>
     ${board.map((m, i) => `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
       <td>${st[m.id].sessions}</td>${s.bonus ? `<td>✨ ${fmtCredits(st[m.id].credits)}</td>` : ""}
       <td>${st[m.id].missed}/${st[m.id].weeks}${st[m.id].saved ? ` <span class="ok" title="mit Guthaben gerettet">+${st[m.id].saved}✨</span>` : ""}</td>
-      <td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
+      <td>${money(st[m.id].owed, c)}</td></tr>`).join("")}
   </table>${s.bonus ? `<div class="hint">Jede Einheit über dem Ziel gibt ein Guthaben. ${s.bonusCost} Guthaben decken
     eine fehlende Einheit – nie die ganze Woche, es muss mindestens einmal Sport dastehen.</div>` : ""}</div>
 
-  <div class="card">
-    <div class="flex"><div><h2>Kassenstand</h2><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div></div></div>
-    <div class="sub">${money(D.members.reduce((a, m) => a + st[m.id].paid, 0), c)} eingezahlt · ${money(D.expenses.reduce((a, x) => a + x.amount, 0), c)} ausgegeben</div>
+  <div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
+    <div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div>
+    <div class="sub">${kasse >= 0
+      ? "angesammelt und noch nicht ausgegeben"
+      : "mehr ausgegeben als angesammelt"} · ${money(angesammelt, c)} angesammelt, ${money(ausgegeben, c)} ausgegeben</div>
+    <table style="margin-top:12px">
+      <tr><th></th><th>Angesammelt</th><th>Gezahlt</th><th>Saldo</th></tr>
+      ${D.members.map(m => {
+        const b = st[m.id];
+        return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}</td>
+          <td class="nw">${plain(b.owed)}</td><td class="nw">${plain(b.settled)}</td>
+          <td class="nw ${b.balance < -0.004 ? "bad" : b.balance > 0.004 ? "ok" : "sub"}">${
+            b.balance > 0.004 ? "+" : ""}${plain(b.balance)}</td></tr>`;
+      }).join("")}
+      ${ohnePerson ? `<tr><td class="sub">ohne Person</td><td class="sub">–</td><td class="nw">${plain(ohnePerson)}</td><td class="sub">–</td></tr>` : ""}
+    </table>
+    <div class="hint">Alle Beträge in ${esc(c)}. Niemand zahlt vorher ein. Wer etwas für die Gruppe bezahlt, bucht es in den
+      Einstellungen auf sich – und begleicht damit seine Schulden. Ein Plus heißt: mehr ausgelegt als fällig war.</div>
   </div>`;
 }
 
@@ -1167,12 +1197,22 @@ function viewSet() {
     <div class="row"><input id="nm" placeholder="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
     <div class="hint">Das zweite Feld ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
 
-  <div class="card"><h2>Kasse</h2>
-    <label>Ausgabe buchen (z. B. Grillen)</label>
-    <div class="row"><input id="et" placeholder="Titel"><input id="ea" type="number" step="0.01" placeholder="Betrag"></div>
+  <div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
+    <label>Wer hat etwas für die Gruppe bezahlt?</label>
+    <select id="ep">
+      ${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}
+      <option value="0">niemand bestimmtes</option>
+    </select>
+    <label>Wofür und wie viel?</label>
+    <div class="row"><input id="et" placeholder="z. B. Grillen"><input id="ea" type="number" step="0.01" placeholder="Betrag"></div>
     <button onclick="addExpense()">Buchen</button>
-    ${D.expenses.map(x => `<div class="item flex"><div>${dm(x.date)} · ${esc(x.title)} · <b>${money(x.amount, s.currency)}</b></div>
-      <button class="x" onclick="delExpense(${x.id})">✕</button></div>`).join("")}</div>
+    <div class="hint">Der Betrag wird dieser Person gutgeschrieben und begleicht ihre Schulden.</div>
+    ${D.expenses.map(x => {
+      const wer = D.members.find(m => m.id === x.member_id);
+      return `<div class="item flex"><div>${dm(x.date)} · ${esc(x.title)} · <b>${money(x.amount, s.currency)}</b>
+        <div class="sub">${wer ? "bezahlt von " + esc(wer.name) : "ohne Person"}</div></div>
+        <button class="x" onclick="delExpense(${x.id})">✕</button></div>`;
+    }).join("")}</div>
 
   <div class="card"><h2>Guthaben${infoBtn("guthaben")}</h2>
     <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
@@ -1320,7 +1360,11 @@ const uploadPhoto = guard(async file => {
 const delExpense = guard(async id => { await api("expense/" + id, "DELETE"); await load(); });
 const addExpense = guard(async () => {
   const a = +$("#ea").value; if (!a) return toast("Betrag fehlt.");
-  await api("expense", "POST", { date: todayISO(), title: $("#et").value, amount: a }); await load();
+  await api("expense", "POST", {
+    date: todayISO(), title: $("#et").value, amount: a, member_id: +$("#ep").value || null,
+  });
+  toast("Gebucht.");
+  await load();
 });
 
 /* ---------- Push ---------- */

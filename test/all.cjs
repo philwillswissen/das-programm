@@ -20,6 +20,7 @@ const suites = [
   ["Zahlen und Diagramme", "test/report.cjs"],
   ["Ändern und Löschen", "test/edit.cjs"],
   ["Feed filtern", "test/filter.cjs"],
+  ["Kasse", "test/kasse.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
 ];
 
