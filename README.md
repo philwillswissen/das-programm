@@ -38,7 +38,9 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   Fehlt später eine Einheit, springen 3 davon automatisch ein (einstellbar) – aber nur,
   wenn sie zu dem Zeitpunkt schon da waren, nie rückwirkend. Eine ganze Woche lässt sich
   nie decken: mindestens ein eigener Eintrag – Sport oder Krankmeldung – muss stehen.
-  Gesammelt wird erst ab dem Tag, an dem die Regel eingeschaltet wurde. Sonntagabends
+  Gesammelt wird erst ab dem Tag, an dem die Regel eingeschaltet wurde; schaltet ihr
+  sie wieder aus, rechnet die Kasse sofort wieder ohne Guthaben – auch rückwirkend,
+  weil nichts gespeichert, sondern alles aus den Einträgen gerechnet wird. Sonntagabends
   sagt die App Bescheid, wenn das Guthaben die Woche trägt – als Benachrichtigung und
   als Eintrag im Feed. Ein i neben der Anzeige erklärt die Regeln.
 - **Automatisch eintragen** – Jede Person hinterlegt einmal ihre Athleten-ID und

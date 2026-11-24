@@ -247,7 +247,7 @@ export function entryMessage({ who, kind, sport, note, meta, crew = 1, yours = f
   if (kind === "sick") {
     return pick([
       `${who} hat sich für diese Woche krankgemeldet. Gute Besserung!`,
-      `${who} ist diese Woche krank gemeldet – gute Besserung.`,
+      `${who} hat sich diese Woche krankgemeldet – gute Besserung.`,
     ], seed);
   }
 

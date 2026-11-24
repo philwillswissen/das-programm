@@ -88,7 +88,9 @@ async function decrypt(dev, buf) {
   await api("entry", "POST", { member_id: ben, kind: "sick", units: 2, date: new Date().toISOString().slice(0, 10), device: "devBen" });
   await new Promise(r => setTimeout(r, 1500));
   ok(received.length === 1 && received[0].path === "/anna", "Krankmeldung geht an das andere Gerät");
-  ok((await decrypt(dAnna, received[0].body)).body.includes("krankgemeldet"), "Text passt zur Krankmeldung");
+  const krankText = (await decrypt(dAnna, received[0].body)).body;
+  ok(/krankgemeldet/.test(krankText), "Text passt zur Krankmeldung: „" + krankText + "“");
+  ok(/Besserung/.test(krankText), "und wünscht gute Besserung statt anzustacheln");
 
   console.log("\n== Eintrag für jemand anderen ==");
   received.length = 0;

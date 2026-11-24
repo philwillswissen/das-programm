@@ -490,10 +490,16 @@ export default {
           stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)").bind(key, JSON.stringify(v)));
         }
         // Beim Einschalten merken wir uns den Tag, ab dem gesammelt wird.
-        if (body.bonus) {
-          const seen = await db.prepare("SELECT v FROM settings WHERE k='bonusSince'").first();
-          if (!seen?.v || seen.v === '""')
-            stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('bonusSince',?)").bind(JSON.stringify(today())));
+        // Beim Ausschalten vergessen wir ihn wieder: solange die Regel aus ist,
+        // gilt sie nicht - auch nicht rueckwirkend, wenn sie spaeter wiederkommt.
+        if ("bonus" in body) {
+          if (body.bonus) {
+            const seen = await db.prepare("SELECT v FROM settings WHERE k='bonusSince'").first();
+            if (!seen?.v || seen.v === '""')
+              stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('bonusSince',?)").bind(JSON.stringify(today())));
+          } else {
+            stmts.push(db.prepare("DELETE FROM settings WHERE k='bonusSince'"));
+          }
         }
         if (stmts.length) await db.batch(stmts);
         return json({ ok: true });

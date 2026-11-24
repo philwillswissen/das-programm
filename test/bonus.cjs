@@ -138,6 +138,41 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   rep = await api("bonus-report", "POST", { now: sunday, send: true });
   ok(rep.data.reports.length === 0, "ein zweites Mal kommt sie nicht");
 
+  console.log("\n== Wieder ausschalten ==");
+  // Die Frage, auf die es ankommt: wird die Kasse danach wieder streng gerechnet?
+  const vorher = (await api("state")).data;
+  const annaVor = vorher.stats[anna];
+  ok(annaVor.saved === 0 && annaVor.credits === 3, "Ausgangslage: 3 Guthaben, nichts gerettet");
+
+  // Eine magere Woche nachtragen, die nur das Guthaben rettet.
+  const extra = (await api("entry", "POST", { member_id: anna, date: monday(0), kind: "workout", sport: "Laufen", device: "x" })).data.id;
+  // ... und die laufende Woche abschliessen, indem wir den Start zurueckdatieren
+  await api("settings", "POST", { start: monday(3) });
+  const mitGuthaben = (await api("state")).data.stats[anna];
+
+  await api("settings", "POST", { bonus: false });
+  const ohne = (await api("state")).data;
+  const annaOhne = ohne.stats[anna];
+  ok(annaOhne.credits === 0, "ausgeschaltet steht das Guthaben auf null");
+  ok(annaOhne.saved === 0, "keine Woche gilt mehr als gerettet");
+  ok(annaOhne.missed >= mitGuthaben.missed, "verpasste Wochen werden wieder voll gezaehlt (" +
+     mitGuthaben.missed + " -> " + annaOhne.missed + ")");
+  ok(annaOhne.paid === annaOhne.missed * ohne.settings.fine, "die Strafe passt zur Zahl der verpassten Wochen");
+  ok(ohne.settings.bonusSince === "", "der Einschalttag ist vergessen");
+
+  // Und wieder an: es beginnt von vorne, nicht rueckwirkend.
+  await api("settings", "POST", { bonus: true });
+  const wieder = (await api("state")).data;
+  ok(/^\d{4}-\d{2}-\d{2}$/.test(wieder.settings.bonusSince), "beim Wiedereinschalten wird der Tag neu gesetzt");
+  ok(wieder.settings.bonusSince === new Date().toISOString().slice(0, 10), "und zwar auf heute");
+  ok(wieder.stats[anna].credits === 0, "das Guthaben beginnt bei null statt rueckwirkend zu entstehen");
+
+  // Ausgangslage wiederherstellen, damit die folgenden Prüfungen stimmen.
+  await api("entry/" + extra, "DELETE");
+  await api("settings", "POST", { bonus: false });
+  await api("settings", "POST", { start: monday(2), bonus: true });
+  await api("settings", "POST", { bonusSince: monday(2) });
+
   console.log("\n== In der App ==");
   const browser = await chromium.launch({ args: ["--no-sandbox"] });
   const ctx = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });

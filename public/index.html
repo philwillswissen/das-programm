@@ -253,7 +253,9 @@ const INFOS = {
     <p>Fehlt dir später eine Einheit, springen <b>3 Guthaben</b> automatisch ein –
        aber nur, wenn sie zu dem Zeitpunkt schon da waren. Rückwirkend geht nichts.</p>
     <p>Eine ganze Woche lässt sich nie decken: mindestens ein eigener Eintrag muss
-       stehen, Sport oder Krankmeldung. Wer eine Woche gar nichts macht, zahlt.</p>`],
+       stehen, Sport oder Krankmeldung. Wer eine Woche gar nichts macht, zahlt.</p>
+    <p>Ihr könnt die Regel jederzeit wieder ausschalten – dann rechnet die Kasse
+       sofort wieder ohne Guthaben, auch für die Wochen davor. Nichts geht kaputt.</p>`],
   anstupser: ["Wann die App sich meldet", `
     <p>Nur wenn du hinterherhinkst, und höchstens einmal je Gelegenheit:</p>
     <ul><li><b>Mitte der Woche</b>, wenn noch gar nichts steht – mal mittwochs, mal donnerstags,
@@ -617,10 +619,39 @@ function viewStats() {
 }
 
 /* ---------- Feed ---------- */
+let filterOpen = false, feedFilter = { member: 0, sport: "" };
+
+const setFilter = (key, value) => { feedFilter[key] = value; render(); };
+const clearFilter = () => { feedFilter = { member: 0, sport: "" }; filterOpen = false; render(); };
+const filterActive = () => !!(feedFilter.member || feedFilter.sport);
+
+// Die Leiste bleibt eine schmale Zeile, bis jemand sie aufklappt.
+function filterBar(sportsInFeed) {
+  if (!filterOpen && !filterActive())
+    return `<div style="text-align:right;margin:-4px 0 10px">
+      <button class="s" style="background:transparent;border:0;color:var(--mut);padding:4px 2px"
+        onclick="filterOpen=true;render()">⌕ Filtern</button></div>`;
+
+  const mine = feedFilter.member;
+  return `<div class="card" style="padding:12px 14px">
+    <div class="flex"><b style="font-size:14px">Feed filtern</b>
+      <button class="x" onclick="clearFilter()" title="Filter aufheben">✕</button></div>
+    <div class="row">
+      <select onchange="setFilter('member', +this.value)">
+        <option value="0">alle Personen</option>
+        ${D.members.map(m => `<option value="${m.id}"${m.id === mine ? " selected" : ""}>${esc(m.name)}</option>`).join("")}
+      </select>
+      <select onchange="setFilter('sport', this.value)">
+        <option value="">alle Sportarten</option>
+        ${sportsInFeed.map(sp => `<option value="${esc(sp)}"${sp === feedFilter.sport ? " selected" : ""}>${esc(sp)}</option>`).join("")}
+      </select>
+    </div></div>`;
+}
+
 function viewFeed() {
   if (!D.members.length) return onboarding();
   const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
-  if (!D.entries.length && !(D.plans || []).length && !(D.events || []).length)
+  if (!D.entries.length && !(D.plans || []).length && !(D.events || []).length && !filterActive())
     return planCards() + `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
       <button onclick="location.hash='#add'">Einheit eintragen</button></div>`;
 
@@ -639,7 +670,17 @@ function viewFeed() {
     merged.push(post);
   }
 
-  const all = [...merged, ...(D.events || []).map(ev => ({ ...ev, isEvent: true }))]
+  const sportsInFeed = [...new Set(D.entries.map(e => e.sport).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de"));
+  const passt = (e) => {
+    if (feedFilter.member && !(e.isEvent ? e.member_id === feedFilter.member : e.crew.includes(feedFilter.member))) return false;
+    if (feedFilter.sport && (e.isEvent || e.sport !== feedFilter.sport)) return false;
+    return true;
+  };
+
+  const all = [...merged, ...(D.events || [])
+      .filter(ev => D.members.some(m => m.id === ev.member_id))   // Teilnehmer gelöscht
+      .map(ev => ({ ...ev, isEvent: true }))]
+    .filter(passt)
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0)));
 
   const days = [];
@@ -647,10 +688,13 @@ function viewFeed() {
     if (!days.length || days[days.length - 1].date !== e.date) days.push({ date: e.date, items: [] });
     days[days.length - 1].items.push(e);
   }
-  return planCards() + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
+  const leer = !all.length
+    ? `<div class="card"><h2>Nichts gefunden</h2><div class="sub">Mit diesem Filter steht hier nichts.</div>
+       <button class="ghost" onclick="clearFilter()">Filter aufheben</button></div>` : "";
+
+  return planCards() + filterBar(sportsInFeed) + leer + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
     if (e.isEvent) {
       const who = D.members.find(m => m.id === e.member_id);
-      if (!who) return "";                       // Teilnehmer gelöscht - die Meldung gehört niemandem mehr
       return `<div class="post plan"><div class="act">✨ <b>Guthaben</b> <span class="sub">für ${esc(who.name)}</span></div>
         <div class="sub" style="margin-top:3px">${esc(e.text)}</div></div>`;
     }
@@ -671,6 +715,7 @@ function viewFeed() {
       ${e.hasPhoto
         ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">
            <button class="s" style="margin-top:6px" onclick="pickPhoto(${e.photoId || e.id})">Foto tauschen</button>`
+        : e.kind === "sick" ? ""
         : `<button class="s" style="margin-top:8px" onclick="pickPhoto(${e.id})">📷 Foto hinzufügen</button>`}
     </div>`;
   }).join("")).join("");
@@ -1138,7 +1183,9 @@ function viewSet() {
         <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
     <div class="hint">Die dritte Einheit einer Woche bringt 1 Guthaben, die vierte 0,5, die fünfte 0,3 –
       höchstens 9 insgesamt. Fehlt später eine Einheit, springen ${s.bonusCost} davon ein, aber nie
-      rückwirkend und nie für eine ganze Woche. Das Kleingedruckte steht hinter dem i.</div>
+      rückwirkend und nie für eine ganze Woche. Das Kleingedruckte steht hinter dem i.
+      ${s.bonus ? "Schaltest du die Regel wieder aus, rechnet die Kasse sofort wieder streng – und das Guthaben beginnt bei null, falls ihr es später erneut einschaltet."
+        : "Gesammelt wird ab dem Tag, an dem ihr sie einschaltet."}</div>
   </div>
 
   <div class="card"><h2>App</h2>
@@ -1232,7 +1279,18 @@ const addMember = guard(async () => { const v = $("#nm").value.trim(); if (!v) r
 const renameMember = guard(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
 const rejoinMember = guard(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
 const delMember = guard(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
-const delEntry = guard(async id => { if (!confirm("Eintrag löschen?")) return; await api("entry/" + id, "DELETE"); await load(); });
+const delEntry = guard(async id => {
+  const e = D.entries.find(x => x.id === id);
+  const wer = e && D.members.find(m => m.id === e.member_id)?.name;
+  const was = e ? (e.kind === "sick" ? "die Krankmeldung" : e.sport ? `die Einheit „${e.sport}“` : "die Einheit") : "den Eintrag";
+  const wann = e ? " vom " + dm(e.date) : "";
+  const gruppe = e?.group_id ? "\n\nDas war eine gemeinsame Einheit – sie verschwindet bei allen, die dabei waren." : "";
+  if (!confirm(`${was}${wann}${wer ? " von " + wer : ""} wirklich löschen?${gruppe}\n\nDas lässt sich nicht rückgängig machen.`)) return;
+  await api("entry/" + id, "DELETE");
+  if (editId === id) { editId = null; location.hash = "#feed"; }
+  R = null;
+  await load();
+});
 // Foto nachtragen - etwa zu einer Einheit, die automatisch übernommen wurde.
 let photoFor = null;
 function pickPhoto(entryId) {

@@ -19,6 +19,7 @@ const suites = [
   ["Import über intervals.icu", "test/icu.cjs"],
   ["Zahlen und Diagramme", "test/report.cjs"],
   ["Ändern und Löschen", "test/edit.cjs"],
+  ["Feed filtern", "test/filter.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
 ];
 
