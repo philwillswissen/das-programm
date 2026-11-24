@@ -1,5 +1,5 @@
-const C = "dp-v2";
-const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png"];
+const C = "dp-__V__";
+const SHELL = ["/", "/manifest.json", "/icon.svg?v=__V__", "/icon-192.png?v=__V__"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));
@@ -35,8 +35,8 @@ self.addEventListener("push", e => {
   e.waitUntil(
     self.registration.showNotification(d.title || "Das Programm", {
       body: d.body || "Neuer Eintrag",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: "/icon-192.png?v=__V__",
+      badge: "/icon-192.png?v=__V__",
       tag: d.tag || "dp",
       renotify: true,
       data: { url: d.url || "/" },

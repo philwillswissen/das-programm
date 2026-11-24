@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="Das Programm">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon.svg?v=__V__" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png?v=__V__">
 <style>
 :root{
   --bg:#f4f6f9; --card:#fff; --fg:#0b1220; --mut:#667085; --line:#e4e8ef;
@@ -155,7 +155,7 @@ function showInstall(force) {
     if (!installEvent && !isIos()) return;            // Browser ohne Dialog nicht belästigen
   }
   const box = document.getElementById("install");
-  const head = `<div class="head"><img src="/icon-192.png" alt="">
+  const head = `<div class="head"><img src="/icon-192.png?v=__V__" alt="">
     <div><h3 id="installTitle">Das Programm installieren</h3>
     <p>Als App auf dem Home-Bildschirm – mit Benachrichtigungen.</p></div></div>`;
 
@@ -861,7 +861,7 @@ function render() {
   if (!D) return;
   const h = location.hash.slice(1);
   const page = views[h] ? h : "home";
-  $("#app").innerHTML = `<header><img class="dot" src="/icon.svg" alt=""><h1>Das Programm</h1></header>` + views[page]();
+  $("#app").innerHTML = `<header><img class="dot" src="/icon.svg?v=__V__" alt=""><h1>Das Programm</h1></header>` + views[page]();
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
   if (page === "add") { setKind(kind); paintCrew(); const w = $("#who"); if (w) w.onchange = paintCrew; }
   document.querySelectorAll("img[data-photo]").forEach(async img => {

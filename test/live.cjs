@@ -9,7 +9,13 @@ const ok = (x, m) => (x ? (pass++, console.log("  ✓ " + m)) : (fail++, console
   const page = await fetch(BASE + "/");
   const html = await page.text();
   ok(page.ok && html.includes("Das Programm"), "die App wird ausgeliefert");
-  ok(html.includes("icon.svg"), "das App-Zeichen ist eingebunden");
+  const linked = [...html.matchAll(/\/icon[\w-]*\.(?:svg|png)\?v=([a-z0-9]+)/g)].map((m) => m[1]);
+  ok(linked.length >= 2, "das App-Zeichen ist eingebunden");
+  ok(new Set(linked).size === 1, "alle Icon-Adressen tragen dieselbe Version (" + (linked[0] || "keine") + ")");
+  if (linked[0]) {
+    const svg = await (await fetch(BASE + "/icon.svg?v=" + linked[0])).text();
+    ok(svg.includes("<use href=\"#f\""), "unter dieser Adresse liegt das aktuelle Zeichen");
+  }
 
   const mf = await (await fetch(BASE + "/manifest.json")).json();
   ok(mf.name === "Das Programm", "Manifest stimmt");

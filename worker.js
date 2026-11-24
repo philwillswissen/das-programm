@@ -25,11 +25,17 @@ function etagOf(data) {
   return `"${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}${bytes.length.toString(36)}"`;
 }
 
+// Die Icons werden unter /icon.svg?v=... verlinkt. Aendert sich das Zeichen,
+// aendert sich die Adresse - sonst haelt ein Browser, der die alte Datei schon
+// als "unveraenderlich" gespeichert hat, sie fuer immer fest.
+const ICON_V = etagOf(iconSvg).replace(/"/g, "").slice(0, 10);
+const withVersion = (text) => text.split("__V__").join(ICON_V);
+
 const ASSETS = Object.fromEntries(
   Object.entries({
-    "/index.html": [indexHtml, HTML],
-    "/sw.js": [swJs, "text/javascript; charset=utf-8"],
-    "/manifest.json": [manifestJson, "application/manifest+json; charset=utf-8"],
+    "/index.html": [withVersion(indexHtml), HTML],
+    "/sw.js": [withVersion(swJs), "text/javascript; charset=utf-8"],
+    "/manifest.json": [withVersion(manifestJson), "application/manifest+json; charset=utf-8"],
     "/icon.svg": [iconSvg, "image/svg+xml"],
     "/icon-192.png": [icon192, "image/png"],
     "/icon-512.png": [icon512, "image/png"],
