@@ -216,6 +216,94 @@ function opener(kind, ctx, seed) {
   return pick(base, seed);
 }
 
+/* ---------- Meldung über einen neuen Eintrag ---------- */
+
+// Was an der Einheit bemerkenswert ist - kurz, sonst passt es nicht ins Banner.
+function detailOf(meta) {
+  if (!meta) return "";
+  const km = meta.Distanz, dauer = meta.Dauer, hm = meta.Anstieg;
+  if (km && dauer) return `${km} in ${dauer}`;
+  if (km) return km;
+  if (dauer && hm) return `${dauer}, ${hm}`;
+  if (dauer) return dauer;
+  return hm || "";
+}
+
+// "war Laufen" klingt richtig, "war Krafttraining" nicht - deshalb nur bei
+// Sportarten, die wie ein Verb gebaut sind.
+const verbal = (sport) => /e[nr]$/.test(sport || "");
+const zahlwort = (n) => ["null", "allein", "zweit", "dritt", "viert", "fünft", "sechst", "siebt", "acht"][n] || (n + "."); 
+
+/**
+ * Die Nachricht, die alle anderen bekommen, wenn jemand etwas einträgt.
+ * Soll neugierig machen statt Protokoll zu führen: was war los, was ist
+ * dabei herausgekommen, und ein Anstoß, selbst loszuziehen.
+ *
+ * @param crew    wie viele zusammen unterwegs waren
+ * @param yours   war der Empfänger selbst dabei?
+ * @param behind  wie viele Einheiten dem Empfänger noch fehlen (0 = keine)
+ */
+export function entryMessage({ who, kind, sport, note, meta, crew = 1, yours = false, behind = 0, seed = 0 }) {
+  if (kind === "sick") {
+    return pick([
+      `${who} hat sich für diese Woche krankgemeldet. Gute Besserung!`,
+      `${who} ist diese Woche krank gemeldet – gute Besserung.`,
+    ], seed);
+  }
+
+  const act = sport || "eine Einheit";
+  const detail = detailOf(meta);
+  const extra = detail ? ` ${detail}.` : note ? ` „${note.slice(0, 60)}“` : "";
+
+  // Wer selbst dabei war, bekommt eine Bestätigung statt einer Einladung.
+  if (yours && crew > 1) {
+    return pick([
+      `Eure Runde ${act} ist eingetragen – zählt auch für dich. 🙌`,
+      `${act} zu ${zahlwort(crew)} ist drin. Zählt für dich mit. 🙌`,
+      `Eingetragen: ${act}, gemeinsam.${extra} Zählt auch für dich. 🙌`,
+    ], seed);
+  }
+
+  // Gemeinsamer Sport ist das Beste, was die Gruppe tun kann - das darf man feiern.
+  if (crew > 1) {
+    const feier = [
+      `🙌 ${who} waren zusammen ${act}!`,
+      `Gemeinsame Runde: ${who} waren ${act}. 🙌`,
+      `${who} haben ${act} zusammen durchgezogen – so geht das! 🙌`,
+      `Zu ${zahlwort(crew)} unterwegs: ${who} waren ${act}. 🙌`,
+    ];
+    const dazu = behind > 0
+      ? [behind === 1 ? "Dir fehlt noch eine – beim nächsten Mal mit?" : `Dir fehlen noch ${behind}. Nächstes Mal mit?`]
+      : ["Beim nächsten Mal dabei?",
+         "Wer schließt sich das nächste Mal an?",
+         "Das nächste Mal zu einem mehr?",
+         "Sowas geht auch mit dir."];
+    return `${pick(feier, seed)}${extra} ${pick(dazu, seed >>> 3)}`;
+  }
+
+  const heads = [`${who} hat ${act} gemacht.`,
+                 `${who} hat ${act} abgehakt.`,
+                 `Neu von ${who}: ${act}.`,
+                 `${act} von ${who} steht im Feed.`];
+  if (verbal(act)) heads.push(`${who} war ${act}.`);
+
+  const calls = [
+    "Schau rein, vielleicht springt der Funke über.",
+    "Na, wer zieht nach?",
+    "Lust mitzuziehen?",
+    "Macht die nächste doch zusammen.",
+    "Schau dir die Runde an – oder plant die nächste gemeinsam.",
+    "Zieh nach, dann steht ihr beide gut da.",
+  ];
+  const nudged = [
+    behind === 1 ? "Dir fehlt noch eine – vielleicht heute?" : `Dir fehlen noch ${behind}. Mitziehen?`,
+    behind === 1 ? "Eine fehlt dir noch. Wie wär's?" : `Noch ${behind} für dich. Zieh nach.`,
+  ];
+
+  const tail = behind > 0 ? pick(nudged, seed >>> 3) : pick(calls, seed >>> 3);
+  return `${pick(heads, seed)}${extra} ${tail}`;
+}
+
 export function buildMessage(kind, ctx, favs, weather, seed) {
   const head = opener(kind, ctx, seed);
   const tail = suggestion(favs, weather, ctx.dow, seed >>> 5);

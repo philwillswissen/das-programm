@@ -122,6 +122,66 @@ let dev;
   ok([...varied].every((b) => b.length <= 190), "Texte bleiben kurz genug für eine Benachrichtigung");
   ok([...varied].every((b) => !/undefined|NaN|\[object/.test(b)), "keine kaputten Platzhalter");
 
+  console.log("\n== Meldung über einen neuen Eintrag ==");
+  const { entryMessage } = require("../nudge.js");
+  const radMeta = { Distanz: "32,40 km", Dauer: "1:12 h", Anstieg: "140 hm" };
+  const texte = [];
+  for (let i = 0; i < 24; i++)
+    texte.push(entryMessage({ who: "Philipp", kind: "workout", sport: "Radfahren", meta: radMeta, seed: i * 7 }));
+  const verschieden = new Set(texte);
+  ok(verschieden.size >= 6, verschieden.size + " verschiedene Formulierungen bei 24 Seeds");
+  ok(texte.every((t) => t.includes("Philipp") && t.includes("Radfahren")), "immer mit Person und Sportart");
+  ok(texte.every((t) => t.includes("32,40 km in 1:12 h")), "die Werte der Einheit stehen drin");
+  ok(texte.every((t) => /\?|Schau|Zieh|zieht|zusammen|Funke|Lust/i.test(t)), "jede Fassung lädt zum Mitmachen ein");
+  ok(texte.every((t) => t.length <= 190), "und bleibt kurz genug fürs Banner (längste " +
+     Math.max(...texte.map((t) => t.length)) + ")");
+  ok(texte.every((t) => !/undefined|NaN|\[object/.test(t)), "keine kaputten Platzhalter");
+
+  // Niemanden falsch bezeichnen: keine Fürwörter über die eintragende Person.
+  // ("ihr" als Anrede an die Gruppe ist in Ordnung - gemeint sind er/sie/ihm/sein.)
+  const falschesWort = texte.filter((t) => /\b(er|ihn|ihm|sie|seine?[mnrs]?|ihre?[mnrs]?)\b(?! beide)/i.test(t)
+    && !/\bihr beide\b/i.test(t));
+  ok(falschesWort.length === 0,
+     "keine Fürwörter, die jemanden falsch bezeichnen würden" + (falschesWort.length ? ": „" + falschesWort[0] + "“" : ""));
+
+  ok(entryMessage({ who: "Anna", kind: "workout", sport: "Laufen", seed: 2 }).includes("Laufen"),
+     "ohne Messwerte geht es auch");
+  const mitKommentar = entryMessage({ who: "Anna", kind: "workout", sport: "Yoga", note: "endlich wieder", seed: 1 });
+  ok(mitKommentar.includes("endlich wieder"), "ohne Werte wird der Kommentar gezeigt: „" + mitKommentar + "“");
+  const krank = entryMessage({ who: "Franz", kind: "sick", seed: 1 });
+  ok(/Besserung/.test(krank) && !/Zieh|Lust|Funke/.test(krank),
+     "bei einer Krankmeldung wird niemand angestachelt: „" + krank + "“");
+  console.log("\n== Gemeinsamer Sport wird gefeiert ==");
+  const gemeinsam = [];
+  for (let i = 0; i < 20; i++)
+    gemeinsam.push(entryMessage({ who: "Franz und Svenja", kind: "workout", sport: "Bouldern", crew: 2, seed: i * 5 }));
+  ok(gemeinsam.every((t) => /\u{1F64C}/u.test(t)), "jede Fassung feiert es sichtbar");
+  ok(gemeinsam.every((t) => /zusammen|Gemeinsame|zu zweit|durchgezogen/i.test(t)), "und sagt, dass sie zusammen waren");
+  ok(gemeinsam.every((t) => /n\u00e4chste|dabei|anschlie\u00dft|mit dir/i.test(t)),
+     "jede lädt zum Mitmachen beim nächsten Mal ein");
+  ok(new Set(gemeinsam).size >= 5, new Set(gemeinsam).size + " verschiedene Fassungen");
+  ok(gemeinsam.every((t) => t.length <= 190), "und alle kurz genug (längste " + Math.max(...gemeinsam.map((t) => t.length)) + ")");
+  const zuViert = entryMessage({ who: "A, B, C und D", kind: "workout", sport: "Laufen", crew: 4, seed: 2 });
+  ok(/viert|zusammen|Gemeinsame|durchgezogen/i.test(zuViert), "auch zu viert: „" + zuViert + "“");
+
+  // Wer selbst dabei war, braucht keine Einladung - nur die Bestätigung.
+  const selbstDabei = [];
+  for (let i = 0; i < 9; i++)
+    selbstDabei.push(entryMessage({ who: "Franz und Svenja", kind: "workout", sport: "Bouldern", crew: 2, yours: true, seed: i * 3 }));
+  ok(selbstDabei.every((t) => /z\u00e4hlt/i.test(t)), "wer dabei war, erfährt, dass es für ihn zählt");
+  ok(selbstDabei.every((t) => !/n\u00e4chste Mal dabei|wer schlie\u00dft/i.test(t)),
+     "und wird nicht eingeladen, wo er schon war: „" + selbstDabei[0] + "“");
+  const gemeinsamHinten = entryMessage({ who: "F und S", kind: "workout", sport: "Schwimmen", crew: 2, behind: 1, seed: 2 });
+  ok(/fehl/i.test(gemeinsamHinten) && /\u{1F64C}/u.test(gemeinsamHinten),
+     "auch mit Rückstand bleibt die Feier: „" + gemeinsamHinten + "“");
+  const hinterher = entryMessage({ who: "Simone", kind: "workout", sport: "Laufen", behind: 1, seed: 3 });
+  ok(/fehl/i.test(hinterher) && !/Funke/.test(hinterher),
+     "wer hinterherhinkt, wird direkt angesprochen statt allgemein: „" + hinterher + "“");
+  ok(/zwei|2/.test(entryMessage({ who: "S", kind: "workout", sport: "Laufen", behind: 2, seed: 1 })),
+     "bei zwei fehlenden Einheiten steht die Zahl drin");
+  ok(!/war Krafttraining/.test(entryMessage({ who: "A", kind: "workout", sport: "Krafttraining", seed: 4 })),
+     "„war Krafttraining“ wird vermieden, „war Laufen“ nicht");
+
   console.log("\n== Zusammenspiel mit der Datenbank ==");
   const s0 = await api("state");
   for (const m of s0.data.members) await api("member/" + m.id, "DELETE");

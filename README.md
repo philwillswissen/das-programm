@@ -19,8 +19,13 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   Distanz, Dauer, Tempo, Puls und Kalorien werden daraus übernommen. Die Sportart
   wählst du aus rund 90 Vorschlägen oder tippst sie frei ein; aus der Datei wird sie
   automatisch erkannt.
+- **Ändern und Löschen** – Jeder Eintrag im Feed lässt sich nachträglich korrigieren
+  (Sportart, Datum, Kommentar, Einheit ↔ Krankmeldung) oder löschen. Bei einer
+  gemeinsamen Einheit gilt die Änderung für alle, die dabei waren.
 - **Push** – Alle anderen Geräte bekommen eine Benachrichtigung, sobald jemand etwas
-  einträgt. Pro Gerät an- und abschaltbar, mit Testbenachrichtigung. Wer selbst noch
+  einträgt. Die Nachricht lädt zum Mitmachen ein statt Protokoll zu führen, nennt die
+  Werte der Einheit und feiert gemeinsame Runden; wer selbst dabei war, bekommt
+  stattdessen die Bestätigung. Pro Gerät an- und abschaltbar, mit Testbenachrichtigung. Wer selbst noch
   hinterherhinkt, bekommt ab Wochenmitte einen kurzen Zusatz angehängt.
 - **Anstupser** – Ein stündlicher Cron-Trigger prüft, wer zurückliegt. Mitte der Woche
   (mal Mittwoch, mal Donnerstag), zum Wochenende (Freitag oder Samstag) und am Sonntag

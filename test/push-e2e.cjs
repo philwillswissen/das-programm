@@ -79,7 +79,9 @@ async function decrypt(dev, buf) {
   ok(received[0]?.headers.ttl === "86400", "TTL gesetzt");
   const msg = await decrypt(dBen, received[0].body);
   ok(msg.title === "Das Programm", "Titel der Benachrichtigung");
-  ok(msg.body === "Anna hat Laufen eingetragen: 10 km Lauf", "Text nennt Person, Sportart und Kommentar: „" + msg.body + "“");
+  ok(/Anna/.test(msg.body) && /Laufen/.test(msg.body),
+     "Text nennt Person und Sportart: „" + msg.body + "“");
+  ok(/\?|schau|zieh|zusammen|funke|fehl/i.test(msg.body), "und lädt zum Mitmachen ein");
 
   console.log("\n== Krankmeldung ==");
   received.length = 0;

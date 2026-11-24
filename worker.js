@@ -1,5 +1,5 @@
 import { sendPush, b64u } from "./push.js";
-import { localParts, slotFor, favourites, buildMessage, geocode, forecast, behindHint } from "./nudge.js";
+import { localParts, slotFor, favourites, buildMessage, entryMessage, geocode, forecast, behindHint } from "./nudge.js";
 import { settle } from "./stats.js";
 import * as icu from "./icu.js";
 import { report } from "./report.js";
@@ -164,22 +164,16 @@ async function notify(env, db, entry, who, fromDevice) {
     .all();
   if (!results.length) return;
 
-  const what = entry.sport ? entry.sport : "eine Einheit";
-  const base =
-    entry.kind === "sick"
-      ? `${who} hat sich für diese Woche krankgemeldet.`
-      : who.includes(" und ")
-        ? `${who} waren ${what}${entry.note ? ": " + entry.note : "."}`
-        : `${who} hat ${what} eingetragen${entry.note ? ": " + entry.note : "."}`;
-
-  // Ab Wochenmitte haengen wir denen, die noch hinterherhinken, einen kurzen Satz an.
-  let hint = () => "";
+  // Wie weit der Empfänger selbst ist - ab Wochenmitte wird das erwähnt.
+  let missing = () => 0;
   if (entry.kind !== "sick") {
     try {
       const { required, credit } = await weekStanding(db);
       const dow = (new Date().getUTCDay() + 6) % 7; // 0 = Montag
-      hint = (memberId) =>
-        behindHint({ dow, required, credit: credit(memberId), recipientId: memberId, authorId: entry.member_id });
+      missing = (memberId) =>
+        behindHint({ dow, required, credit: credit(memberId), recipientId: memberId, authorId: entry.member_id })
+          ? Math.max(0, required - credit(memberId))
+          : 0;
     } catch (e) { console.log("Wochenstand nicht lesbar", String(e)); }
   }
 
@@ -188,7 +182,18 @@ async function notify(env, db, entry, who, fromDevice) {
       try {
         const status = await sendPush(env, s, {
           title: "Das Programm",
-          body: base + hint(s.member_id),
+          body: entryMessage({
+            who,
+            kind: entry.kind,
+            sport: entry.sport,
+            note: entry.note,
+            meta: entry.meta,
+            crew: entry.crew || 1,
+            yours: !!(entry.crewIds && s.member_id && entry.crewIds.includes(s.member_id)),
+            behind: missing(s.member_id),
+            // Pro Eintrag und Empfänger ein anderer Text, aber stabil.
+            seed: ((entry.id || 0) * 2654435761 + (s.member_id || 0) * 97) >>> 0,
+          }),
           tag: "entry-" + entry.id,
           url: "/#feed",
         });
@@ -361,9 +366,11 @@ export default {
           : names[0];
 
         ctx.waitUntil(
-          notify(env, db, { id, kind, note, sport, member_id: memberId }, who, clean(body.device, 64)).catch((e) =>
-            console.log("notify failed", String(e))
-          )
+          notify(env, db,
+            { id, kind, note, sport, member_id: memberId, meta: meta ? JSON.parse(meta) : null,
+              crew: names.length, crewIds: [memberId, ...withIds.map((x) => x.id)] },
+            who, clean(body.device, 64)
+          ).catch((e) => console.log("notify failed", String(e)))
         );
         return json({ ok: true, id, group: withIds.length + 1 });
       }
@@ -419,6 +426,25 @@ export default {
         await db.prepare("UPDATE members SET lat=?, lon=? WHERE id=?")
           .bind(Math.round(lat * 100) / 100, Math.round(lon * 100) / 100, m[1]).run();
         return json({ ok: true });
+      }
+
+      // Eintrag ändern. Gehört er zu einer gemeinsamen Einheit, ändert sich
+      // die ganze Gruppe mit - es war ja dieselbe Runde.
+      if ((m = path.match(/^\/api\/entry\/(\d+)$/)) && method === "POST") {
+        const row = await db.prepare("SELECT * FROM entries WHERE id=?").bind(m[1]).first();
+        if (!row) return json({ error: "Eintrag unbekannt." }, 404);
+
+        const kind = KINDS.includes(body.kind) ? body.kind : row.kind;
+        const date = isDate(body.date) ? body.date : row.date;
+        const units = kind === "sick" ? Math.min(Math.max(Number(body.units) || 1, 1), 10) : 1;
+        const sport = kind === "sick" ? null : (clean(body.sport, 40) || null);
+        const note = clean(body.note, 300);
+
+        const where = row.group_id ? "group_id=?" : "id=?";
+        const key = row.group_id || row.id;
+        await db.prepare(`UPDATE entries SET date=?, kind=?, units=?, sport=?, note=? WHERE ${where}`)
+          .bind(date, kind, units, sport, note, key).run();
+        return json({ ok: true, changed: row.group_id ? "gruppe" : "einzeln" });
       }
 
       // Foto nachträglich anhängen - etwa zu einer automatisch übernommenen Einheit.
@@ -666,7 +692,7 @@ async function syncMember(env, db, memberId, ctx) {
 
     added.push({ member: member.name, sport: m.sport, date: m.date, minutes: m.minutes });
     const sending = notify(env, db,
-      { id: res.meta.last_row_id, kind: "workout", note: m.note, sport: m.sport, member_id: member.id },
+      { id: res.meta.last_row_id, kind: "workout", note: m.note, sport: m.sport, member_id: member.id, meta: m.meta },
       member.name, "import").catch((e) => console.log("notify", String(e)));
     if (ctx) ctx.waitUntil(sending); else await sending;
   }

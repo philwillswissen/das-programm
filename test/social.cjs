@@ -60,9 +60,11 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   const anna = (await api("member", "POST", { name: "Anna" })).data.id;
   const ben = (await api("member", "POST", { name: "Ben" })).data.id;
   const chris = (await api("member", "POST", { name: "Chris" })).data.id;
-  const dBen = await newDevice(), dChris = await newDevice();
+  const dani = (await api("member", "POST", { name: "Dani" })).data.id;
+  const dBen = await newDevice(), dChris = await newDevice(), dDani = await newDevice();
   await api("push/subscribe", "POST", { device: "dBen", member_id: ben, sub: { endpoint: PUSH + "/ben", keys: { p256dh: dBen.p256dh, auth: dBen.authB64 } } });
   await api("push/subscribe", "POST", { device: "dChris", member_id: chris, sub: { endpoint: PUSH + "/chris", keys: { p256dh: dChris.p256dh, auth: dChris.authB64 } } });
+  await api("push/subscribe", "POST", { device: "dDani", member_id: dani, sub: { endpoint: PUSH + "/dani", keys: { p256dh: dDani.p256dh, auth: dDani.authB64 } } });
 
   console.log("\n== Gemeinsame Einheit: einer trägt ein ==");
   received.length = 0;
@@ -78,9 +80,21 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   ok(st.entries.filter((e) => e.group_id === gid && e.member_id === anna).length === 1, "die eintragende Person ist dabei");
 
   await sleep(1500);
-  ok(received.length === 2, received.length + " Benachrichtigungen an die anderen Geräte");
-  const t = await decrypt(dBen, received.find((r) => r.path === "/ben").body);
-  ok(/Anna, Ben und Chris waren Bouldern/.test(t.body), "Text nennt alle drei: „" + t.body + "“");
+  ok(received.length === 3, received.length + " Benachrichtigungen an die anderen Geräte");
+
+  // Wer selbst dabei war, bekommt eine Bestätigung ...
+  const anBen = await decrypt(dBen, received.find((r) => r.path === "/ben").body);
+  ok(/z\u00e4hlt/i.test(anBen.body), "wer dabei war, erfährt, dass es für ihn zählt: „" + anBen.body + "“");
+  ok(/\u{1F64C}/u.test(anBen.body), "und es wird gefeiert");
+  ok(!/n\u00e4chste Mal dabei/i.test(anBen.body), "ohne Einladung zu etwas, wo er schon war");
+
+  // ... wer nicht dabei war, eine Einladung.
+  const anDani = await decrypt(dDani, received.find((r) => r.path === "/dani").body);
+  ok(/Anna, Ben und Chris/.test(anDani.body) && /Bouldern/.test(anDani.body),
+     "die anderen erfahren, wer was gemacht hat: „" + anDani.body + "“");
+  ok(/zusammen|Gemeinsame|zu dritt|durchgezogen/.test(anDani.body), "und dass sie zusammen unterwegs waren");
+  ok(/\u{1F64C}/u.test(anDani.body), "gemeinsamer Sport wird gefeiert");
+  ok(/n\u00e4chste|dabei|mit dir|anschlie\u00dft/i.test(anDani.body), "und sie werden zum nächsten Mal eingeladen");
 
   console.log("\n== Gemeinsamen Eintrag löschen ==");
   const one = (await api("state")).data.entries.find((e) => e.group_id === gid);
@@ -107,11 +121,11 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
      "Ger\u00e4te ohne Person bekommen keinen pers\u00f6nlichen Zusatz");
   const dow = (new Date().getUTCDay() + 6) % 7;
   if (dow >= 2) {
-    ok(/Dir fehl(t|en) noch/.test(toBen.body), "wer hinterherhinkt, bekommt einen kurzen Zusatz: „" + toBen.body + "“");
-    ok(toBen.body.length < 170, "der Zusatz bleibt kurz");
-    ok((toBen.body.match(/Dir fehl/g) || []).length === 1, "nur ein Satz, nicht mehr");
+    ok(/fehl(t|en) (dir|noch)/i.test(toBen.body), "wer hinterherhinkt, wird mitgenommen: „" + toBen.body + "“");
+    ok(toBen.body.length < 190, "die Nachricht bleibt kurz genug (" + toBen.body.length + " Zeichen)");
   } else {
-    ok(!/Dir fehl/.test(toBen.body), "früh in der Woche wird nicht gestupst: „" + toBen.body + "“");
+    ok(!/fehl/i.test(toBen.body), "früh in der Woche wird nicht gestupst: „" + toBen.body + "“");
+    ok(/\?|schau|zieh|zusammen|funke/i.test(toBen.body), "stattdessen eine Einladung: „" + toBen.body + "“");
   }
   // Ben holt auf, dann darf nichts mehr angehängt werden
   await api("entry", "POST", { member_id: ben, date: today(), kind: "workout", sport: "Laufen", device: "dBen" });
@@ -120,7 +134,7 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   await api("entry", "POST", { member_id: anna, date: today(), kind: "workout", sport: "Laufen", device: "dAnna" });
   await sleep(1500);
   const after = await decrypt(dBen, received.find((r) => r.path === "/ben").body);
-  ok(!/Dir fehl/.test(after.body), "wer sein Ziel hat, wird nicht gestupst: „" + after.body + "“");
+  ok(!/fehl/i.test(after.body), "wer sein Ziel hat, wird nicht gestupst: „" + after.body + "“");
 
   console.log("\n== Aktivität vorschlagen ==");
   received.length = 0;
@@ -130,8 +144,8 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   });
   ok(plan.status === 200 && plan.data.id, "Vorschlag angelegt");
   await sleep(1500);
-  ok(received.length === 1 && received[0].path === "/ben", "die anderen werden gefragt");
-  const invite = await decrypt(dBen, received[0].body);
+  ok(received.some((r) => r.path === "/ben"), "die anderen werden gefragt");
+  const invite = await decrypt(dBen, received.find((r) => r.path === "/ben").body);
   ok(/Chris schlägt Schwimmen vor/.test(invite.body) && /18:30/.test(invite.body),
      "Einladung nennt Person, Sportart und Zeit: „" + invite.body + "“");
 
@@ -182,7 +196,7 @@ const plus = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   await page.click('nav a[href="#add"]');
   await page.waitForSelector("#sport");
   const visibleCrew = await page.$$eval("[data-crew]", (els) => els.filter((e) => e.style.display !== "none").map((e) => e.textContent));
-  ok(visibleCrew.length === 2, "beim Eintrag stehen die anderen zur Auswahl (" + visibleCrew.join(", ") + ")");
+  ok(visibleCrew.length === 3, "beim Eintrag stehen die anderen zur Auswahl (" + visibleCrew.join(", ") + ")");
   const hidden = await page.$$eval("[data-crew]", (els) => els.filter((e) => e.style.display === "none").length);
   ok(hidden === 1, "sich selbst kann man nicht als Mitmacher wählen");
   await page.fill("#sport", "Volleyball");

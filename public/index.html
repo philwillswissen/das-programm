@@ -15,9 +15,11 @@
 :root{
   --bg:#f4f6f9; --card:#fff; --fg:#0b1220; --mut:#667085; --line:#e4e8ef;
   --acc:#16a34a; --accd:#15803d; --bad:#dc2626; --warn:#d97706; --chip:#eef2f7;
+  --field:#f7f9fc; --fieldline:#c3ccda; --focus:#16a34a33;
 }
 @media (prefers-color-scheme:dark){
-  :root{ --bg:#0b1220; --card:#151d2e; --fg:#eef2f7; --mut:#95a1b6; --line:#263147; --chip:#1d2739; }
+  :root{ --bg:#0b1220; --card:#151d2e; --fg:#eef2f7; --mut:#9aa7bd; --line:#2b3850; --chip:#1f2b40;
+         --field:#0d1526; --fieldline:#3b4a66; --focus:#22c55e40; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
@@ -40,14 +42,26 @@ td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
 tr:last-child td{border-bottom:0}
 td:first-child,th:first-child{text-align:left;font-weight:600}
 .ok{color:var(--acc)} .bad{color:var(--bad)} .warn{color:var(--warn)}
-input,select,textarea,button{font:inherit;width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);margin:5px 0;appearance:none}
-textarea{min-height:60px;resize:vertical}
+input,select,textarea{font:inherit;width:100%;padding:12px 13px;border-radius:12px;
+  border:1.5px solid var(--fieldline);background:var(--field);color:var(--fg);margin:5px 0;appearance:none}
+input::placeholder,textarea::placeholder{color:var(--mut);opacity:.75}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--focus)}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
+input[type=date],input[type=time]{min-height:46px}
+input[type=file]{padding:9px 12px;border-style:dashed;color:var(--mut)}
+input[type=file]::file-selector-button{font:inherit;font-weight:600;margin-right:10px;padding:7px 12px;
+  border:0;border-radius:9px;background:var(--chip);color:var(--fg)}
+button{font:inherit;width:100%;padding:12px 13px;border-radius:12px;border:0;background:var(--card);color:var(--fg);margin:5px 0;appearance:none}
+textarea{min-height:64px;resize:vertical}
 button{background:var(--acc);color:#fff;border:0;font-weight:700;cursor:pointer}
+button.ghost{background:var(--chip);color:var(--fg);border:1px solid var(--line)}
+button.s{border:1px solid var(--line)}
 button:active{background:var(--accd)}
 button.ghost{background:var(--chip);color:var(--fg)}
 button.s{width:auto;padding:8px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600}
 button.x{width:auto;padding:6px 10px;background:transparent;color:var(--mut);font-size:16px}
-label{font-size:13px;color:var(--mut);display:block;margin-top:10px}
+label{font-size:13px;color:var(--mut);display:block;margin-top:14px;font-weight:600}
 .row{display:flex;gap:8px;align-items:center}
 .row>*{flex:1;margin:4px 0}
 .row>.x,.row>.s{flex:0 0 auto}
@@ -647,7 +661,8 @@ function viewFeed() {
       <div class="who"><div class="av">${names.length > 1 ? names.length : esc(names[0].slice(0, 1).toUpperCase())}</div>
         <div style="flex:1"><b>${esc(n)}</b>${e.crew.includes(me) ? ' <span class="chip">du</span>' : ""}
           ${names.length > 1 ? '<div class="sub">zusammen unterwegs</div>' : ""}</div>
-        <button class="x" onclick="delEntry(${e.id})">✕</button></div>
+        <button class="x" onclick="editEntry(${e.id})" title="Ändern">✎</button>
+        <button class="x" onclick="delEntry(${e.id})" title="Löschen">✕</button></div>
       <div class="act">${e.kind === "sick"
         ? "🤒 Krankmeldung (" + (e.units || 1) + " " + ((e.units || 1) === 1 ? "Einheit" : "Einheiten") + ")"
         : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
@@ -768,29 +783,49 @@ const normSport = raw => {
 };
 
 /* ---------- Eintrag ---------- */
+let editId = null;
+function editEntry(id) {
+  const e = D.entries.find(x => x.id === id);
+  if (!e) return toast("Eintrag nicht gefunden.");
+  editId = id;
+  kind = e.kind;
+  crew = [];
+  pending = null;
+  location.hash = "#add";
+  render();
+}
+function cancelEdit() { editId = null; location.hash = "#feed"; render(); }
+
 function viewAdd() {
   if (!D.members.length) return onboarding();
   const s = D.settings;
-  return `<div class="card"><h2>Neuer Eintrag</h2>
+  const e = editId ? D.entries.find(x => x.id === editId) : null;
+  if (editId && !e) editId = null;
+  return `<div class="card"><h2>${e ? "Eintrag ändern" : "Neuer Eintrag"}</h2>
     <label>Für wen?</label>
-    <select id="who">${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+    <select id="who"${e ? " disabled" : ""}>${D.members.map(m =>
+      `<option value="${m.id}"${m.id === (e ? e.member_id : me) ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
     <label>Was?</label>
     <div class="seg"><button id="k-workout" class="on" onclick="setKind('workout')">🏃 Sporteinheit</button><button id="k-sick" onclick="setKind('sick')">🤒 Krank</button></div>
     <div id="sportBox"><label>Welche Sportart?</label>
       <input id="sport" list="sportList" autocomplete="off" placeholder="tippen oder aus der Liste wählen"
-        value="${esc(localStorage.lastSport || "")}">
+        value="${esc(e ? (e.sport || "") : (localStorage.lastSport || ""))}">
       <datalist id="sportList">${SPORTS.map(x => `<option value="${esc(x[0])}">`).join("")}</datalist></div>
     <div id="unitsBox" style="display:none"><label>Krankmeldung zählt als … Einheiten dieser Woche</label>
       <select id="units">${Array.from({ length: Math.max(1, s.required) }, (_, i) => `<option value="${i + 1}"${i + 1 === Math.max(1, s.required) ? " selected" : ""}>${i + 1}</option>`).join("")}</select></div>
-    <div id="crewBox">${D.members.length > 1 ? `<label>Wer war noch dabei? (optional)</label>
+    <div id="crewBox">${e ? "" : D.members.length > 1 ? `<label>Wer war noch dabei? (optional)</label>
       <div class="who-pick">${D.members.map(m => `<button type="button" data-crew="${m.id}" onclick="toggleCrew(${m.id})">${esc(m.name)}</button>`).join("")}</div>
       <div class="hint">Einer trägt ein, alle bekommen die Einheit gutgeschrieben.</div>` : ""}</div>
-    <label>Datum</label><input type="date" id="date" value="${todayISO()}" max="${todayISO()}">
-    <label>Kommentar (optional)</label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker"></textarea>
-    <label>Foto oder Aktivitätsdatei (optional)</label>
+    <label>Datum</label><input type="date" id="date" value="${e ? esc(e.date) : todayISO()}" max="${todayISO()}">
+    <label>Kommentar (optional)</label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker">${e ? esc(e.note || "") : ""}</textarea>
+    ${e ? "" : `<label>Foto oder Aktivitätsdatei (optional)</label>
     <input type="file" id="file" accept="image/*,.gpx,.tcx" onchange="preview()">
-    <div id="prev" class="sub"></div>
-    <button id="saveBtn" onclick="save()"${busy ? " disabled" : ""}>${busy ? "Speichere…" : "Speichern"}</button>
+    <div id="prev" class="sub"></div>`}
+    <button id="saveBtn" onclick="save()"${busy ? " disabled" : ""}>${
+      busy ? "Speichere…" : e ? "Änderungen speichern" : "Speichern"}</button>
+    ${e ? `<button class="ghost" onclick="cancelEdit()">Abbrechen</button>
+      <button class="ghost" style="color:var(--bad)" onclick="delEntry(${e.id})">Eintrag löschen</button>
+      ${e.group_id ? '<div class="hint">Das war eine gemeinsame Einheit – die Änderung gilt für alle, die dabei waren.</div>' : ""}` : ""}
     <div class="hint">GPX/TCX aus Strava, Garmin oder Komoot: Aktivität → Exportieren. Distanz, Dauer &amp; Tempo werden automatisch übernommen.</div>
   </div>`;
 }
@@ -980,6 +1015,16 @@ async function save() {
       note: $("#note").value, device,
       ...(pending || {}),
     };
+    if (editId) {
+      await api("entry/" + editId, "POST", body);
+      editId = null;
+      pending = null;
+      toast("Geändert.");
+      location.hash = "#feed";
+      R = null;
+      await load();
+      return;
+    }
     await api("entry", "POST", body);
     if (body.sport) localStorage.lastSport = body.sport;
     R = null;                                   // Zahlen neu rechnen lassen
@@ -1291,7 +1336,7 @@ function render() {
   addEventListener("pointerover", (e) => { if (e.pointerType === "mouse") at(e); }, { passive: true });
 })();
 
-addEventListener("hashchange", render);
+addEventListener("hashchange", () => { if (location.hash !== "#add") editId = null; render(); });
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 // Beim Zurückkommen frisch laden - aber nicht, während jemand ein Formular
 // ausfüllt. Sonst ist die halb getippte Eingabe weg, nur weil man kurz in

@@ -18,6 +18,7 @@ const suites = [
   ["Guthaben", "test/bonus.cjs"],
   ["Import über intervals.icu", "test/icu.cjs"],
   ["Zahlen und Diagramme", "test/report.cjs"],
+  ["Ändern und Löschen", "test/edit.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
 ];
 
