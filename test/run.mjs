@@ -15,9 +15,11 @@ const call = async (p, method = "GET", body) => {
 const state = () => call("state").then(r => r.data);
 
 console.log("\n== Grundgerüst ==");
+await call("settings", "POST", { required: 2, fine: 20, currency: "€", sickMax: 2 });
 let s = await state();
-ok(s.settings.required === 2, "Standard: 2 Einheiten/Woche");
-ok(s.settings.fine === 20, "Standard: 20 Strafe");
+ok(s.settings.required === 2, "Einheiten pro Woche kommen zurück");
+ok(s.settings.fine === 20, "Strafbetrag kommt zurück");
+ok(/^\d{4}-\d{2}-\d{2}$/.test(s.settings.start), "Startdatum ist vorbelegt (" + s.settings.start + ")");
 ok(Array.isArray(s.members), "Teilnehmerliste vorhanden");
 ok(typeof s.vapidPublicKey === "string" && s.vapidPublicKey.length > 80, "VAPID Public Key wird ausgeliefert");
 

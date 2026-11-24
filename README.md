@@ -42,14 +42,17 @@ cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
 npx wrangler dev
 ```
 
-Tests gegen den laufenden `wrangler dev`:
+Tests gegen den laufenden `wrangler dev` (105 Prüfungen):
 
 ```bash
-node test/run.mjs        # API
-node test/push.test.mjs  # Verschlüsselung gegen den RFC-8291-Testvektor
-node test/push-e2e.cjs   # Push von Ende zu Ende
-node test/ui.cjs         # Oberfläche im echten Browser
+npm test
 ```
+
+Einzeln: `test/run.mjs` (API), `test/push.test.mjs` (Verschlüsselung gegen den
+Testvektor aus RFC 8291), `test/push-e2e.cjs` (Push von Ende zu Ende mit einem
+lokalen Push-Dienst), `test/ui.cjs` (Oberfläche im echten Browser).
+
+Gegen die Live-Instanz: `BASE=https://das-programm.phil89.workers.dev npm test`.
 
 ## Deployment
 

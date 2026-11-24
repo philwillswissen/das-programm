@@ -175,6 +175,9 @@ const api = (p, method = "GET", body) =>
   await page.click('nav a[href="#set"]'); await page.waitForTimeout(300);
   await page.screenshot({ path: "/tmp/claude-0/-home-user/62ed92d6-a25d-5adb-b200-ace6f56fe19c/scratchpad/shot-set.png", fullPage: true });
 
+  // Einstellungen zuruecksetzen, damit andere Suiten nicht darauf stossen
+  await api("settings", "POST", { required: 2, fine: 20, currency: "€", sickMax: 2 });
+
   await browser.close();
   console.log(`\n${pass} ok, ${fail} fehlgeschlagen\n`);
   process.exit(fail ? 1 : 0);
