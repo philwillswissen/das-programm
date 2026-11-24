@@ -40,6 +40,8 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
 .nw{white-space:nowrap}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable.on{color:var(--acc)}
 tr:last-child td{border-bottom:0}
 td:first-child,th:first-child{text-align:left;font-weight:600}
 .ok{color:var(--acc)} .bad{color:var(--bad)} .warn{color:var(--warn)}
@@ -244,15 +246,14 @@ function showInstall(force) {
   document.getElementById("backdrop").classList.add("on");
 }
 // Kurze Erklärungen, dort wo die Frage aufkommt.
-const INFOS = {
+const INFOS = () => { const S = (D && D.settings) || {}; return {
   guthaben: ["So funktioniert das Guthaben", `
     <p>Wer mehr macht als das Wochenziel, sammelt Guthaben:</p>
-    <ul><li>die <b>dritte</b> Einheit einer Woche bringt <b>1</b></li>
-        <li>die <b>vierte</b> noch <b>0,5</b></li>
-        <li>die <b>fünfte</b> noch <b>0,3</b></li>
+    <ul>${(S.creditSteps || []).map((x, i) =>
+      `<li>die <b>${S.required + i + 1}.</b> Einheit einer Woche bringt <b>${fmtCredits(x)}</b></li>`).join("")}
         <li>alles darüber bringt nichts mehr</li></ul>
-    <p>Mehr als <b>9</b> lassen sich nicht ansparen.</p>
-    <p>Fehlt dir später eine Einheit, springen <b>3 Guthaben</b> automatisch ein –
+    <p>Mehr als <b>${fmtCredits(S.creditMax)}</b> lassen sich nicht ansparen.</p>
+    <p>Fehlt dir später eine Einheit, springen <b>${S.bonusCost} Guthaben</b> automatisch ein –
        aber nur, wenn sie zu dem Zeitpunkt schon da waren. Rückwirkend geht nichts.</p>
     <p>Eine ganze Woche lässt sich nie decken: mindestens ein eigener Eintrag muss
        stehen, Sport oder Krankmeldung. Wer eine Woche gar nichts macht, zahlt.</p>
@@ -277,10 +278,10 @@ const INFOS = {
     <p>Wann genau, wechselt von Woche zu Woche. Wer sein Ziel hat, hört nichts.</p>
     <p>Der Text richtet sich nach deiner Serie, deinen Sportarten und – wenn du den
        Standort freigibst – nach dem Wetter.</p>`],
-};
+}; };
 
 function showInfo(key) {
-  const [title, body] = INFOS[key] || [];
+  const [title, body] = INFOS()[key] || [];
   if (!title) return;
   const box = document.getElementById("info");
   box.innerHTML = `<h3>${title}</h3>${body}<button class="ghost" onclick="hideInfo()">Verstanden</button>`;
@@ -395,7 +396,24 @@ function viewHome() {
   const kasse = angesammelt - ausgegeben;
   const ohnePerson = D.expenses.filter(x => !x.member_id).reduce((a, x) => a + x.amount, 0);
   const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
-  const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].owed - st[b.id].owed);
+  // Medaillen gehen immer nach geschafften Wochen - unabhängig davon, wonach
+  // gerade sortiert ist.
+  const rang = new Map([...D.members]
+    .sort((a, b) => st[b.id].weeksDone - st[a.id].weeksDone || st[b.id].sessions - st[a.id].sessions)
+    .map((m, i) => [m.id, i]));
+  const SPALTEN = {
+    weeksDone: m => st[m.id].weeksDone,
+    sessions: m => st[m.id].sessions,
+    streak: m => st[m.id].streak,
+    bestStreak: m => st[m.id].bestStreak,
+  };
+  const board = [...D.members].sort((a, b) => {
+    const f = SPALTEN[boardSort.key] || SPALTEN.weeksDone;
+    return (f(b) - f(a)) * boardSort.dir || st[b.id].weeksDone - st[a.id].weeksDone;
+  });
+  const th = (key, label, titel) =>
+    `<th class="sortable${boardSort.key === key ? " on" : ""}" title="${titel}" onclick="sortBoard('${key}')">${label}${
+      boardSort.key === key ? (boardSort.dir === 1 ? " \u2193" : " \u2191") : ""}</th>`;
 
   const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
     <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
@@ -421,13 +439,20 @@ function viewHome() {
   </table><div class="hint">* laufende Woche</div></div>
 
   <div class="card"><h2>Rangliste</h2><table>
-    <tr><th></th><th>Einheiten</th>${s.bonus ? "<th>Guthaben</th>" : ""}<th>Verpasst</th><th>Angesammelt</th></tr>
-    ${board.map((m, i) => `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
-      <td>${st[m.id].sessions}</td>${s.bonus ? `<td>✨ ${fmtCredits(st[m.id].credits)}</td>` : ""}
-      <td>${st[m.id].missed}/${st[m.id].weeks}${st[m.id].saved ? ` <span class="ok" title="mit Guthaben gerettet">+${st[m.id].saved}✨</span>` : ""}</td>
-      <td>${money(st[m.id].owed, c)}</td></tr>`).join("")}
-  </table>${s.bonus ? `<div class="hint">Jede Einheit über dem Ziel gibt ein Guthaben. ${s.bonusCost} Guthaben decken
-    eine fehlende Einheit – nie die ganze Woche, es muss mindestens einmal Sport dastehen.</div>` : ""}</div>
+    <tr><th></th>${th("weeksDone", "Wochen", "erfolgreich abgeschlossene Wochen")}
+      ${th("sessions", "Einheiten", "Einheiten insgesamt")}
+      ${th("streak", "\u{1F525}", "aktuelle Serie")}
+      ${th("bestStreak", "Rekord", "l\u00e4ngste Serie")}
+      ${s.bonus ? "<th>\u2728</th>" : ""}</tr>
+    ${board.map(m => {
+      const b = st[m.id], i = rang.get(m.id);
+      return `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
+        <td class="nw">${b.weeksDone}/${b.weeks}${b.saved ? ` <span class="ok" title="mit Guthaben gerettet">✨</span>` : ""}</td>
+        <td>${b.sessions}</td><td>${b.streak || "–"}</td><td>${b.bestStreak || "–"}</td>
+        ${s.bonus ? `<td class="nw">${fmtCredits(b.credits)}</td>` : ""}</tr>`;
+    }).join("")}
+  </table><div class="hint">Medaillen gehen nach erfolgreich abgeschlossenen Wochen. Tipp auf eine
+    Überschrift sortiert danach.${s.bonus ? ` ✨ ist das Guthaben; ${s.bonusCost} davon decken eine fehlende Einheit.` : ""}</div></div>
 
   <div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
     <div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div>
@@ -506,6 +531,11 @@ function pushNudge() {
 
 /* ---------- Zahlen ---------- */
 let R = null, reportFailed = false, statsWho = "me";
+let boardSort = { key: "weeksDone", dir: 1 };   // dir 1 = größte zuerst
+function sortBoard(key) {
+  boardSort = boardSort.key === key ? { key, dir: -boardSort.dir } : { key, dir: 1 };
+  render();
+}
 
 const loadReport = async () => {
   try {
@@ -1218,12 +1248,27 @@ function viewSet() {
     <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
       <div class="sub">${s.bonus ? "aktiv" : "aus"}</div></div>
       <button class="s" onclick="toggleBonus()">${s.bonus ? "Ausschalten" : "Einschalten"}</button></div>
-    ${s.bonus ? `<label>Wie viele Guthaben decken eine fehlende Einheit?</label>
+    ${s.bonus ? `
+      <label>Was bringen Einheiten über dem Wochenziel?</label>
+      <div class="row"><input id="creditSteps" value="${(s.creditSteps || []).map(x => String(x).replace(".", ",")).join("  ")}"
+          placeholder="1  0,5  0,3" autocomplete="off">
+        <button class="s" onclick="saveSteps()">Merken</button></div>
+      <div class="hint">Ein Wert je zusätzlicher Einheit, durch Leerzeichen getrennt. Bei Ziel ${s.required}
+        bringt also die ${s.required + 1}. Einheit ${fmtCredits((s.creditSteps || [])[0] ?? 0)},
+        die ${s.required + 2}. ${fmtCredits((s.creditSteps || [])[1] ?? 0)}${
+        (s.creditSteps || []).length > 2 ? `, die ${s.required + 3}. ${fmtCredits(s.creditSteps[2])}` : ""} –
+        alles darüber nichts mehr.</div>
+
+      <label>Höchstens ansparen</label>
+      <div class="row"><input id="creditMax" type="number" min="1" max="99" step="0.5" value="${s.creditMax}">
+        <button class="s" onclick="saveCreditMax()">Merken</button></div>
+
+      <label>Wie viele Guthaben decken eine fehlende Einheit?</label>
       <div class="row"><input id="bonusCost" type="number" min="1" max="20" value="${s.bonusCost}">
         <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
-    <div class="hint">Die dritte Einheit einer Woche bringt 1 Guthaben, die vierte 0,5, die fünfte 0,3 –
-      höchstens 9 insgesamt. Fehlt später eine Einheit, springen ${s.bonusCost} davon ein, aber nie
-      rückwirkend und nie für eine ganze Woche. Das Kleingedruckte steht hinter dem i.
+    <div class="hint">Guthaben entsteht nur aus Einheiten über dem Wochenziel. Fehlt später eine Einheit,
+      springen ${s.bonusCost} davon ein, aber nie rückwirkend und nie für eine ganze Woche.
+      Das Kleingedruckte steht hinter dem i.
       ${s.bonus ? "Schaltest du die Regel wieder aus, rechnet die Kasse sofort wieder streng – und das Guthaben beginnt bei null, falls ihr es später erneut einschaltet."
         : "Gesammelt wird ab dem Tag, an dem ihr sie einschaltet."}</div>
   </div>
@@ -1269,6 +1314,23 @@ const toggleBonus = guard(async () => {
   await api("settings", "POST", { bonus: !D.settings.bonus });
   await load();
 });
+// "1  0,5  0,3" - Leerzeichen, Semikolon oder Schrägstrich trennen, Komma ist Dezimaltrenner.
+const parseSteps = (text) => String(text).split(/[\s;\/]+/).map(x => x.trim()).filter(Boolean)
+  .map(x => Number(x.replace(",", "."))).filter(x => Number.isFinite(x) && x >= 0);
+
+const saveSteps = guard(async () => {
+  const list = parseSteps($("#creditSteps").value);
+  if (!list.length) return toast("Mindestens ein Wert, z. B. 1  0,5  0,3");
+  await api("settings", "POST", { creditSteps: list });
+  toast("Gemerkt.");
+  await load();
+});
+const saveCreditMax = guard(async () => {
+  await api("settings", "POST", { creditMax: +$("#creditMax").value });
+  toast("Gemerkt.");
+  await load();
+});
+
 const saveBonusCost = guard(async () => {
   await api("settings", "POST", { bonusCost: +$("#bonusCost").value });
   toast("Gemerkt.");

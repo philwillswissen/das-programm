@@ -23,17 +23,25 @@ function rawWeek(entries, memberId, week, sickMax) {
   return { done, sickUnits, base: done + Math.min(sickUnits, sickMax) };
 }
 
-// Was eine zusätzliche Einheit wert ist: die erste über dem Ziel einen ganzen
-// Punkt, die zweite einen halben, die dritte 0,3 – danach nichts mehr.
+// Was eine zusätzliche Einheit wert ist. Die Vorgabe: die erste über dem Ziel
+// einen ganzen Punkt, die zweite einen halben, die dritte 0,3 – danach nichts
+// mehr. Beides lässt sich in den Einstellungen ändern.
 export const CREDIT_STEPS = [1, 0.5, 0.3];
 export const MAX_CREDITS = 9;
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
 
-export function creditsEarned(done, required) {
+export const stepsOf = (settings = {}) =>
+  Array.isArray(settings.creditSteps) && settings.creditSteps.length
+    ? settings.creditSteps
+    : CREDIT_STEPS;
+export const capOf = (settings = {}) =>
+  Number.isFinite(settings.creditMax) && settings.creditMax > 0 ? settings.creditMax : MAX_CREDITS;
+
+export function creditsEarned(done, required, steps = CREDIT_STEPS) {
   let sum = 0;
-  for (let i = 0; i < done - required; i++) sum += CREDIT_STEPS[i] ?? 0;
+  for (let i = 0; i < done - required; i++) sum += steps[i] ?? 0;
   return round1(sum);
 }
 
@@ -53,6 +61,8 @@ export function settle({ members, entries, expenses = [], settings, today }) {
   const sickMax = Number.isFinite(settings.sickMax) ? settings.sickMax : required;
   const cost = Math.max(1, Number(settings.bonusCost) || 3);
   const bonusOn = !!settings.bonus;
+  const steps = stepsOf(settings);
+  const cap = capOf(settings);
   // Gesammelt wird erst ab dem Tag, an dem die Regel eingeschaltet wurde -
   // sonst gaebe es beim Einschalten rueckwirkend ein Guthaben aus alten Wochen.
   const bonusFrom = bonusOn && settings.bonusSince ? weekOf(settings.bonusSince) : null;
@@ -69,7 +79,7 @@ export function settle({ members, entries, expenses = [], settings, today }) {
       weeks++;
       if (base >= required) {
         if (bonusOn && (!bonusFrom || w >= bonusFrom))
-          credits = round1(Math.min(MAX_CREDITS, credits + creditsEarned(done, required)));
+          credits = round1(Math.min(cap, credits + creditsEarned(done, required, steps)));
         okWeeks.push(w);
         continue;
       }
@@ -90,7 +100,7 @@ export function settle({ members, entries, expenses = [], settings, today }) {
     // Laufende Woche
     const now = rawWeek(entries, m.id, cur, sickMax);
     const left = Math.max(0, required - now.base);
-    const pending = bonusOn ? Math.min(MAX_CREDITS - credits, creditsEarned(now.done, required)) : 0;
+    const pending = bonusOn ? Math.min(cap - credits, creditsEarned(now.done, required, steps)) : 0;
     const canRescue = bonusOn && now.done + now.sickUnits >= 1 && left > 0 && left <= required - 1 && credits >= left * cost;
 
     let streak = 0;
@@ -100,6 +110,15 @@ export function settle({ members, entries, expenses = [], settings, today }) {
       else break;
     }
 
+    // Längste Serie überhaupt: die abgeschlossenen Wochen der Reihe nach
+    // durchgehen, die laufende zählt mit, wenn sie schon steht.
+    let best = 0, run = 0;
+    for (let w = from, i = 0; w < cur && i < 520; w = addWeeks(w, 1), i++) {
+      run = okWeeks.includes(w) ? run + 1 : 0;
+      if (run > best) best = run;
+    }
+    if (now.base >= required) { run++; if (run > best) best = run; }
+
     out[m.id] = {
       // Nur was seit dem Start der Challenge passiert ist - und nicht, bevor
       // die Person dabei war.
@@ -107,12 +126,14 @@ export function settle({ members, entries, expenses = [], settings, today }) {
         (e) => e.member_id === m.id && e.kind !== "sick" && weekOf(e.date) >= from
       ).length,
       weeks, missed, saved, spent,
+      weeksDone: weeks - missed,          // erfolgreich abgeschlossene Wochen
+      bestStreak: best,
       // Was zusammengekommen ist, was die Person davon schon ausgelegt hat,
       // und was unterm Strich bleibt. Niemand zahlt in einen Topf ein - wer
       // etwas fuer die Gruppe bezahlt, begleicht damit seine Schulden.
       owed: round2(missed * (Number(settings.fine) || 0)),
       settled: round2(expenses.filter((x) => x.member_id === m.id).reduce((a, x) => a + (Number(x.amount) || 0), 0)),
-      credits, pending: round1(Math.max(0, pending)), streak, maxCredits: MAX_CREDITS,
+      credits, pending: round1(Math.max(0, pending)), streak, maxCredits: cap,
       week: { done: now.done, sick: now.sickUnits, credit: now.base, left, canRescue },
       rescueCost: left * cost,
     };

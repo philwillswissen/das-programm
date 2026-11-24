@@ -16,6 +16,7 @@ const suites = [
   ["Motivationsnachrichten", "test/nudge.test.cjs"],
   ["Gemeinsame Einheiten und Vorschläge", "test/social.cjs"],
   ["Guthaben", "test/bonus.cjs"],
+  ["Rangliste", "test/board.cjs"],
   ["Import über intervals.icu", "test/icu.cjs"],
   ["Zahlen und Diagramme", "test/report.cjs"],
   ["Ändern und Löschen", "test/edit.cjs"],

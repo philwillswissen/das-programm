@@ -76,7 +76,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS links(member_id INTEGER PRIMARY KEY, athlete_id TEXT NOT NULL, api_key TEXT NOT NULL, name TEXT, last_check TEXT, connected TEXT)",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "Nürnberg", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "Nürnberg", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "", creditSteps: [1, 0.5, 0.3], creditMax: 9 };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
 // Kürzere Einheiten werden beim automatischen Import übergangen.
@@ -484,6 +484,15 @@ export default {
           else if (key === "place") v = clean(v, 60);
           else if (key === "tz") { v = clean(v, 40); if (!v) continue; }
           else if (key === "nudges" || key === "bonus") v = v ? 1 : 0;
+          else if (key === "creditSteps") {
+            // Was die erste, zweite, dritte ... Einheit über dem Ziel bringt.
+            const list = (Array.isArray(v) ? v : [])
+              .map((x) => Math.round((Number(x) || 0) * 10) / 10)
+              .filter((x) => x >= 0 && x <= 9)
+              .slice(0, 10);
+            if (!list.length) continue;
+            v = list;
+          }
           else if (key === "bonusSince") { if (!isDate(v)) continue; }
           else if (key === "start") { if (!isDate(v)) continue; }
           else {
@@ -492,6 +501,7 @@ export default {
             if (key === "required") v = Math.min(Math.max(Math.round(v), 1), 21);
             if (key === "sickMax") v = Math.min(Math.max(Math.round(v), 0), 21);
             if (key === "bonusCost") v = Math.min(Math.max(Math.round(v), 1), 20);
+            if (key === "creditMax") v = Math.min(Math.max(Math.round(v * 10) / 10, 1), 99);
           }
           stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)").bind(key, JSON.stringify(v)));
         }

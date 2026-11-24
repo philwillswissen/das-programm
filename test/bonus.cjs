@@ -1,6 +1,6 @@
 // Guthaben: sammeln nach Stufen, Deckel, automatisch einsetzen, Grenzen,
 // Sonntagsmeldung.
-const { settle, creditsEarned, MAX_CREDITS } = require("../stats.js");
+const { settle, creditsEarned, MAX_CREDITS, stepsOf, capOf } = require("../stats.js");
 const { chromium, devices } = require("/opt/node-tools/node_modules/playwright");
 const BASE = process.env.BASE || "http://127.0.0.1:8787";
 require("../scripts/guard.cjs").requireScratchTarget(BASE);
@@ -34,8 +34,24 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   ok(creditsEarned(4, 3) === 1, "bei Ziel 3 zählt erst die vierte Einheit");
   ok(MAX_CREDITS === 9, "mehr als 9 lassen sich nicht ansparen");
 
+  console.log("\n== Eigene Stufen ==");
+  let r;
+  ok(creditsEarned(5, 2, [2, 1, 0.5]) === 3.5, "eigene Stufen zaehlen (" + creditsEarned(5, 2, [2, 1, 0.5]) + ")");
+  ok(creditsEarned(9, 2, [2, 1, 0.5]) === 3.5, "auch hier ist nach der Liste Schluss");
+  ok(creditsEarned(3, 2, [0]) === 0, "eine Null bringt nichts");
+  ok(stepsOf({}) === undefined || stepsOf({}).join() === "1,0.5,0.3", "ohne Einstellung gilt die Vorgabe");
+  ok(stepsOf({ creditSteps: [2, 1] }).join() === "2,1", "mit Einstellung gelten deren Werte");
+  ok(capOf({}) === 9 && capOf({ creditMax: 4 }) === 4, "der Deckel kommt genauso aus den Einstellungen");
+
+  r = run({ [W[0]]: { work: 5 } }, W[1], { creditSteps: [2, 1, 0.5] });
+  ok(r.credits === 3.5, "die Abrechnung nutzt sie (" + r.credits + ")");
+  r = run({ [W[0]]: { work: 5 } }, W[1], { creditSteps: [2, 1, 0.5], creditMax: 3 });
+  ok(r.credits === 3 && r.maxCredits === 3, "und haelt sich an den eigenen Deckel (" + r.credits + ")");
+  r = run({ [W[0]]: { work: 3 }, [W[1]]: { work: 1 } }, W[2], { creditSteps: [3] });
+  ok(r.missed === 0 && r.saved === 1, "mit grosszuegigen Stufen reicht schon eine starke Woche");
+
   console.log("\n== Sammeln ==");
-  let r = run({ [W[0]]: { work: 4 } }, W[1]);
+  r = run({ [W[0]]: { work: 4 } }, W[1]);
   ok(r.credits === 1.5, "eine Woche mit vier Einheiten gibt 1,5 (" + r.credits + ")");
   r = run({ [W[0]]: { work: 2 } }, W[1]);
   ok(r.credits === 0, "genau das Ziel gibt kein Guthaben");
@@ -190,7 +206,7 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   await page.click('.hero button.i');
   await page.waitForSelector("#info.on");
   const info = await page.textContent("#info");
-  ok(/dritte/.test(info) && /0,5/.test(info) && /9/.test(info), "das i erklärt die Guthaben-Regeln");
+  ok(/3\. Einheit/.test(info) && /0,5/.test(info) && /9/.test(info), "das i erklärt die Guthaben-Regeln nach den Einstellungen");
   ok(/Rückwirkend geht nichts/.test(info), "und sagt, dass nichts rückwirkend geht");
   await page.click('#info button');
   await page.waitForFunction(() => !document.getElementById("info").classList.contains("on"));
@@ -201,6 +217,22 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   const cards = await page.$$eval("#app .card h2", (els) => els.map((e) => e.textContent.replace(/i$/, "").trim()));
   ok(cards[cards.length - 2] === "Guthaben", "die Guthaben-Regel steht ganz unten in den Einstellungen (" + cards.slice(-3).join(" | ") + ")");
   ok(!(await page.$("#importMin")), "kein Feld mehr für die Übernahmezeit");
+
+  ok(await page.inputValue("#creditSteps") === "1  0,5  0,3", "die Stufen stehen als Feld da (" + await page.inputValue("#creditSteps") + ")");
+  await page.fill("#creditSteps", "2; 1; 0,5");
+  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Merken") >> nth=0');
+  await page.waitForFunction(() => document.querySelector("#creditSteps")?.value === "2  1  0,5");
+  let gs = (await api("state")).data.settings;
+  ok(gs.creditSteps.join() === "2,1,0.5", "Komma und Semikolon werden verstanden (" + gs.creditSteps.join() + ")");
+  await page.fill("#creditMax", "4");
+  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Merken") >> nth=1');
+  await page.waitForFunction(() => document.querySelector("#creditMax")?.value === "4");
+  gs = (await api("state")).data.settings;
+  ok(gs.creditMax === 4, "der Deckel laesst sich einstellen (" + gs.creditMax + ")");
+  ok(/die 3. Einheit 2/.test((await page.textContent('.card:has(h2:has-text("Guthaben"))')).replace(/\s+/g, " ")),
+     "der Hinweis rechnet es an der Zielvorgabe vor");
+  await api("settings", "POST", { creditSteps: [1, 0.5, 0.3], creditMax: 9 });
+
   await page.click('.card:has(h2:has-text("Motivation")) button.i');
   await page.waitForSelector("#info.on");
   ok(/mittwochs/.test(await page.textContent("#info")), "auch der Anstupser hat eine Erklärung");
