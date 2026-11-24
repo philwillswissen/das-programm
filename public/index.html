@@ -268,25 +268,13 @@ function weeksOf(member) {
   return out;
 }
 
-function stats(member) {
-  const s = D.settings, cur = weekOf(todayISO()), past = weeksOf(member);
-  let missed = 0;
-  for (const w of past) if (credit(member.id, w) < s.required) missed++;
-  let streak = 0;
-  if (credit(member.id, cur) >= s.required) streak++;
-  for (let i = past.length - 1; i >= 0 && credit(member.id, past[i]) >= s.required; i--) streak++;
-  return {
-    missed, paid: missed * s.fine, streak,
-    sessions: D.entries.filter(e => e.member_id === member.id && e.kind !== "sick").length,
-    weeks: past.length,
-  };
-}
+/* Die Abrechnung (Strafen, Serie, Guthaben) rechnet der Worker - siehe stats.js. */
 
 /* ---------- Start ---------- */
 function viewHome() {
   const s = D.settings, c = s.currency, cur = weekOf(todayISO());
   if (!D.members.length) return onboarding();
-  const st = {}; for (const m of D.members) st[m.id] = stats(m);
+  const st = D.stats || {};
   const kasse = D.members.reduce((a, m) => a + st[m.id].paid, 0) - D.expenses.reduce((a, x) => a + x.amount, 0);
   const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
   const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].paid - st[b.id].paid);
@@ -301,7 +289,7 @@ function viewHome() {
       return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}
         <div class="bar"><i style="width:${Math.min(100, cr / s.required * 100)}%"></i></div></td>
         <td class="${ok ? "ok" : ""}">${d}${k ? " +" + k + "🤒" : ""} / ${s.required} ${ok ? "✓" : ""}</td>
-        <td>${st[m.id].streak ? "🔥 " + st[m.id].streak : "–"}</td></tr>`;
+        <td>${st[m.id]?.streak ? "🔥 " + st[m.id].streak : "–"}</td></tr>`;
     }).join("")}
   </table><div class="hint">Wer das Ziel verpasst, zahlt ${money(s.fine, c)} in die Kasse.</div></div>
 
@@ -315,10 +303,13 @@ function viewHome() {
   </table><div class="hint">* laufende Woche</div></div>
 
   <div class="card"><h2>Rangliste</h2><table>
-    <tr><th></th><th>Einheiten</th><th>Verpasst</th><th>Eingezahlt</th></tr>
+    <tr><th></th><th>Einheiten</th>${s.bonus ? "<th>Guthaben</th>" : ""}<th>Verpasst</th><th>Eingezahlt</th></tr>
     ${board.map((m, i) => `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
-      <td>${st[m.id].sessions}</td><td>${st[m.id].missed}/${st[m.id].weeks}</td><td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
-  </table></div>
+      <td>${st[m.id].sessions}</td>${s.bonus ? `<td>✨ ${st[m.id].credits}</td>` : ""}
+      <td>${st[m.id].missed}/${st[m.id].weeks}${st[m.id].saved ? ` <span class="ok" title="mit Guthaben gerettet">+${st[m.id].saved}✨</span>` : ""}</td>
+      <td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
+  </table>${s.bonus ? `<div class="hint">Jede Einheit über dem Ziel gibt ein Guthaben. ${s.bonusCost} Guthaben decken
+    eine fehlende Einheit – nie die ganze Woche, es muss mindestens einmal Sport dastehen.</div>` : ""}</div>
 
   <div class="card">
     <div class="flex"><div><h2>Kassenstand</h2><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div></div></div>
@@ -330,7 +321,9 @@ function viewHome() {
 function hero(st) {
   const s = D.settings, cur = weekOf(todayISO());
   if (!me) return "";
-  const mine = st[me], cr = credit(me, cur), left = Math.max(0, s.required - cr), days = daysLeft();
+  const mine = st[me];
+  if (!mine) return "";
+  const cr = mine.week.credit, left = mine.week.left, days = daysLeft();
   const pct = Math.min(100, s.required ? cr / s.required * 100 : 100);
   const headline = mine.streak
     ? `<div class="flame">🔥</div><div class="big">${mine.streak} ${mine.streak === 1 ? "Woche" : "Wochen"}</div><div class="sub">am Stück geschafft</div>`
@@ -340,9 +333,14 @@ function hero(st) {
       + (mine.streak > 1 ? " · Serie hält" : "")
     : `Noch ${left} ${left === 1 ? "Einheit" : "Einheiten"} in ${days} ${days === 1 ? "Tag" : "Tagen"}`
       + ` · ${cr} von ${s.required}`;
+  const bonus = s.bonus
+    ? `<div class="sub" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.25);padding-top:8px">
+        ✨ ${mine.credits} Guthaben${mine.pending ? " (+" + mine.pending + " diese Woche)" : ""}
+        ${mine.week.canRescue ? ` · ${mine.rescueCost} davon würden die Woche decken` : ""}</div>`
+    : "";
   return `<div class="card hero">${headline}
     <div class="bar"><i style="width:${pct}%"></i></div>
-    <div class="sub">${line}</div></div>`;
+    <div class="sub">${line}</div>${bonus}</div>`;
 }
 
 // Bleibt stehen, bis Push auf diesem Gerät läuft.
@@ -368,7 +366,7 @@ function pushNudge() {
 function viewFeed() {
   if (!D.members.length) return onboarding();
   const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
-  if (!D.entries.length && !(D.plans || []).length)
+  if (!D.entries.length && !(D.plans || []).length && !(D.events || []).length)
     return planCards() + `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
       <button onclick="location.hash='#add'">Einheit eintragen</button></div>`;
 
@@ -387,12 +385,17 @@ function viewFeed() {
     merged.push(post);
   }
 
+  const all = [...merged, ...(D.events || []).map(ev => ({ ...ev, isEvent: true }))]
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0)));
+
   const days = [];
-  for (const e of merged) {
+  for (const e of all) {
     if (!days.length || days[days.length - 1].date !== e.date) days.push({ date: e.date, items: [] });
     days[days.length - 1].items.push(e);
   }
   return planCards() + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
+    if (e.isEvent) return `<div class="post plan"><div class="act">✨ <b>${esc(nameOf(e.member_id))}</b></div>
+      <div class="sub" style="margin-top:3px">${esc(e.text)}</div></div>`;
     const names = e.crew.map(nameOf);
     const n = names.length > 1 ? names.slice(0, -1).join(", ") + " & " + names[names.length - 1] : names[0];
     const meta = e.meta ? Object.entries(JSON.parse(e.meta)) : [];
@@ -714,6 +717,18 @@ function viewSet() {
     <label>Start der Challenge</label><input id="start" type="date" value="${esc(s.start)}">
     <button onclick="saveSettings()">Regeln speichern</button></div>
 
+  <div class="card"><h2>Guthaben</h2>
+    <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
+      <div class="sub">${s.bonus ? "aktiv" : "aus"}</div></div>
+      <button class="s" onclick="toggleBonus()">${s.bonus ? "Ausschalten" : "Einschalten"}</button></div>
+    ${s.bonus ? `<label>Wie viele Guthaben decken eine fehlende Einheit?</label>
+      <div class="row"><input id="bonusCost" type="number" min="1" max="20" value="${s.bonusCost}">
+        <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
+    <div class="hint">Jede Einheit über dem Wochenziel gibt ein Guthaben. Fehlt später eine Einheit,
+      springen ${s.bonusCost} Guthaben automatisch ein. Eine ganze Woche lässt sich nie decken –
+      mindestens eine echte Sporteinheit muss in der Woche stehen, eine Krankmeldung reicht dafür nicht.</div>
+  </div>
+
   <div class="card"><h2>Benachrichtigungen</h2>
     ${!canPush ? '<div class="sub">Dieser Browser unterstützt keine Push-Benachrichtigungen.</div>'
       : !D.vapidPublicKey ? '<div class="sub">Auf dem Server sind keine VAPID-Keys hinterlegt.</div>'
@@ -770,6 +785,15 @@ const saveSettings = guard(async () => {
     sickMax: +$("#sickMax").value, start: $("#start").value,
   });
   toast("Gespeichert."); await load();
+});
+const toggleBonus = guard(async () => {
+  await api("settings", "POST", { bonus: !D.settings.bonus });
+  await load();
+});
+const saveBonusCost = guard(async () => {
+  await api("settings", "POST", { bonusCost: +$("#bonusCost").value });
+  toast("Gemerkt.");
+  await load();
 });
 const toggleNudges = guard(async () => {
   await api("settings", "POST", { nudges: !D.settings.nudges });

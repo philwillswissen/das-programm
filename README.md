@@ -27,6 +27,12 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   als letzte Chance. Der Text richtet sich nach Serie, Lieblingssportarten, Gruppenlage
   und – wenn ein Ort hinterlegt ist – nach dem Wetter von Open-Meteo. Höchstens einmal
   je Art und Woche.
+- **Guthaben** (abschaltbar, standardmäßig aus) – Jede Einheit über dem Wochenziel
+  gibt ein Guthaben. Fehlt später eine Einheit, springen davon automatisch welche ein
+  (Standard: 3 je Einheit, einstellbar). Eine ganze Woche lässt sich nie decken: mindestens
+  ein eigener Eintrag – Sport oder Krankmeldung – muss stehen. Gesammelt wird erst ab dem
+  Tag, an dem die Regel eingeschaltet wurde. Sonntagabends sagt die App Bescheid, wenn das
+  Guthaben die Woche trägt – als Benachrichtigung und als Eintrag im Feed.
 - **Gemeinsam** – Beim Eintragen lässt sich ankreuzen, wer noch dabei war; einer
   dokumentiert, alle bekommen die Einheit. Im Feed stehen diese als ein Beitrag.
   Aus dem Feed heraus kann man eine gemeinsame Einheit vorschlagen, die anderen
@@ -45,6 +51,7 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 | Datei | Inhalt |
 |---|---|
 | `worker.js` | API, D1-Schema, Auslieferung der Oberfläche, Push-Versand |
+| `stats.js` | Abrechnung einer Woche: Strafen, Serie, Guthaben |
 | `nudge.js` | Motivationsnachrichten: Zeitfenster, Textbausteine, Wetter |
 | `push.js` | Web Push nach RFC 8291 (aes128gcm) und RFC 8292 (VAPID), ohne Abhängigkeiten |
 | `public/index.html` | die komplette Oberfläche (eine Datei, kein Framework) |
@@ -62,7 +69,7 @@ cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
 npx wrangler dev
 ```
 
-Tests gegen den laufenden `wrangler dev` (225 Prüfungen):
+Tests gegen den laufenden `wrangler dev` (272 Prüfungen):
 
 ```bash
 npm test

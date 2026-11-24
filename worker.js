@@ -1,5 +1,6 @@
 import { sendPush, b64u } from "./push.js";
 import { localParts, slotFor, favourites, buildMessage, geocode, forecast, behindHint } from "./nudge.js";
+import { settle } from "./stats.js";
 import indexHtml from "./public/index.html";
 import swJs from "./public/sw.js";
 import manifestJson from "./public/manifest.json";
@@ -39,9 +40,10 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS cache(k TEXT PRIMARY KEY, v TEXT, exp INTEGER)",
   "CREATE TABLE IF NOT EXISTS plans(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, sport TEXT, date TEXT NOT NULL, time TEXT, note TEXT, created TEXT)",
   "CREATE TABLE IF NOT EXISTS plan_joins(plan_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(plan_id, member_id))",
+  "CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER, date TEXT NOT NULL, kind TEXT, text TEXT, created TEXT)",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin" };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
 
@@ -166,10 +168,21 @@ export default {
   // Stuendlich; wer dran ist, entscheidet runNudges anhand der lokalen Zeit.
   async scheduled(event, env, ctx) {
     if (!env.DB) return;
+    const when = new Date(event.scheduledTime || Date.now());
     ctx.waitUntil(
       migrate(env.DB)
-        .then(() => runNudges(env, env.DB, new Date(event.scheduledTime || Date.now())))
-        .then((sent) => sent.length && console.log("Nudges", JSON.stringify(sent.map((x) => x.member + ": " + x.body))))
+        .then(async () => {
+          const sent = await runNudges(env, env.DB, when);
+          if (sent.length) console.log("Nudges", JSON.stringify(sent.map((x) => x.member + ": " + x.body)));
+          const settings = await env.DB.prepare("SELECT v FROM settings WHERE k='tz'").first().catch(() => null);
+          let tz = "Europe/Berlin";
+          try { if (settings?.v) tz = JSON.parse(settings.v) || tz; } catch {}
+          const here = localParts(when, tz);
+          if (here.dow === 0 && here.hour === 20) {
+            const books = await bonusReport(env, env.DB, when);
+            if (books.length) console.log("Guthaben", JSON.stringify(books.map((x) => x.member)));
+          }
+        })
         .catch((e) => console.log("Nudge-Lauf fehlgeschlagen", String(e?.stack || e)))
     );
   },
@@ -208,7 +221,7 @@ export default {
             settings[row.k] = JSON.parse(row.v);
           } catch {}
         }
-        const [members, entries, expenses, plans, joins] = await Promise.all([
+        const [members, entries, expenses, plans, joins, events] = await Promise.all([
           all("SELECT id,name,joined FROM members ORDER BY id"),
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
@@ -216,6 +229,7 @@ export default {
           all("SELECT id,date,title,amount FROM expenses ORDER BY date DESC, id DESC"),
           all("SELECT id,member_id,sport,date,time,note FROM plans WHERE date >= date('now','-1 day') ORDER BY date, time"),
           all("SELECT plan_id,member_id FROM plan_joins"),
+          all("SELECT id,member_id,date,kind,text FROM events ORDER BY date DESC, id DESC LIMIT 60"),
         ]);
         return json({
           settings,
@@ -223,6 +237,8 @@ export default {
           entries,
           expenses,
           plans: plans.map((p) => ({ ...p, joined: joins.filter((j) => j.plan_id === p.id).map((j) => j.member_id) })),
+          events,
+          stats: settle({ members, entries, settings, today: today() }),
           vapidPublicKey: env.VAPID_PUBLIC || null,
         });
       }
@@ -362,15 +378,23 @@ export default {
           if (key === "currency") v = clean(v, 4) || "€";
           else if (key === "place") v = clean(v, 60);
           else if (key === "tz") { v = clean(v, 40); if (!v) continue; }
-          else if (key === "nudges") v = v ? 1 : 0;
+          else if (key === "nudges" || key === "bonus") v = v ? 1 : 0;
+          else if (key === "bonusSince") { if (!isDate(v)) continue; }
           else if (key === "start") { if (!isDate(v)) continue; }
           else {
             v = Number(v);
             if (!isFinite(v) || v < 0) continue;
             if (key === "required") v = Math.min(Math.max(Math.round(v), 1), 21);
             if (key === "sickMax") v = Math.min(Math.max(Math.round(v), 0), 21);
+            if (key === "bonusCost") v = Math.min(Math.max(Math.round(v), 1), 20);
           }
           stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES(?,?)").bind(key, JSON.stringify(v)));
+        }
+        // Beim Einschalten merken wir uns den Tag, ab dem gesammelt wird.
+        if (body.bonus) {
+          const seen = await db.prepare("SELECT v FROM settings WHERE k='bonusSince'").first();
+          if (!seen?.v || seen.v === '""')
+            stmts.push(db.prepare("INSERT OR REPLACE INTO settings(k,v) VALUES('bonusSince',?)").bind(JSON.stringify(today())));
         }
         if (stmts.length) await db.batch(stmts);
         return json({ ok: true });
@@ -456,6 +480,12 @@ export default {
         return json({ ok: true });
       }
 
+      // Guthaben-Meldung ansehen oder ausloesen
+      if (path === "/api/bonus-report" && method === "POST") {
+        const when = body.now && !isNaN(Date.parse(body.now)) ? new Date(body.now) : new Date();
+        return json({ ok: true, reports: await bonusReport(env, db, when, { dry: !body.send }) });
+      }
+
       // Vorschau der faelligen Motivationsnachrichten; mit send=true wirklich schicken.
       if (path === "/api/nudges" && method === "POST") {
         const when = body.now && !isNaN(Date.parse(body.now)) ? new Date(body.now) : new Date();
@@ -474,6 +504,57 @@ export default {
   },
 };
 
+
+/* ---------- Guthaben: Sonntagsmeldung ---------- */
+
+// Laeuft sonntags um 20 Uhr Ortszeit: wessen Woche nur noch das Guthaben rettet,
+// bekommt es als Benachrichtigung und als Eintrag im Feed - einmal pro Woche.
+export async function bonusReport(env, db, now, { dry = false } = {}) {
+  const out = [];
+  const settings = { ...DEFAULTS, start: weekOf(today()) };
+  for (const row of (await db.prepare("SELECT k,v FROM settings").all()).results) {
+    try { settings[row.k] = JSON.parse(row.v); } catch {}
+  }
+  if (!settings.bonus) return out;
+
+  const tz = settings.tz || "Europe/Berlin";
+  const here = localParts(now, tz);
+  const week = weekOf(here.date);
+
+  const [members, entries, subs] = await Promise.all([
+    db.prepare("SELECT id,name,joined FROM members").all().then((r) => r.results),
+    db.prepare("SELECT member_id,date,kind,units,sport FROM entries").all().then((r) => r.results),
+    db.prepare("SELECT * FROM subs WHERE member_id IS NOT NULL").all().then((r) => r.results),
+  ]);
+  const ledger = settle({ members, entries, settings, today: here.date });
+
+  for (const member of members) {
+    const book = ledger[member.id];
+    if (!book?.week?.canRescue) continue;
+
+    const text = `Dir fehlt noch ${book.week.left === 1 ? "eine Einheit" : book.week.left + " Einheiten"}. ` +
+      `Kommt heute nichts mehr, decken ${book.rescueCost} deiner ${book.credits} Guthaben die Woche ab.`;
+    out.push({ member: member.name, member_id: member.id, text });
+    if (dry) continue;
+
+    const claim = await db
+      .prepare("INSERT OR IGNORE INTO nudges(member_id,week,kind,sent) VALUES(?,?,?,?)")
+      .bind(member.id, week, "bonus", new Date().toISOString())
+      .run();
+    if (!claim.meta?.changes) { out.pop(); continue; }
+
+    await db.prepare("INSERT INTO events(member_id,date,kind,text,created) VALUES(?,?,?,?,?)")
+      .bind(member.id, here.date, "bonus", text, new Date().toISOString()).run();
+
+    for (const sub of subs.filter((x) => x.member_id === member.id)) {
+      try {
+        const status = await sendPush(env, sub, { title: "Das Programm", body: text, tag: "bonus-" + week });
+        if (status === 404 || status === 410) await db.prepare("DELETE FROM subs WHERE device=?").bind(sub.device).run();
+      } catch (e) { console.log("Guthaben-Meldung fehlgeschlagen", String(e)); }
+    }
+  }
+  return out;
+}
 
 /* ---------- Motivationsnachrichten ---------- */
 
@@ -530,6 +611,7 @@ export async function runNudges(env, db, now, { dry = false, force = null } = {}
   const daysLeft = 7 - ((here.dow + 6) % 7);
   const standings = new Map(members.map((m) => [m.id, creditOf(entries, m.id, week, sickMax)]));
   const finished = members.filter((m) => standings.get(m.id).credit >= required);
+  const ledger = settle({ members, entries, settings, today: here.date });
 
   let weather = null;
   if (settings.place) {
@@ -578,6 +660,11 @@ export async function runNudges(env, db, now, { dry = false, force = null } = {}
       weather,
       (member.id * 2654435761 + Number(week.replace(/-/g, ""))) >>> 0
     );
+
+    const book = ledger[member.id];
+    if (settings.bonus && book?.week?.canRescue) {
+      msg.body += ` Oder ${book.rescueCost} deiner ${book.credits} Guthaben springen ein.`;
+    }
 
     out.push({ member: member.name, member_id: member.id, kind: effective, devices: devices.length, ...msg });
     if (dry) continue;
