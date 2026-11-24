@@ -51,12 +51,19 @@ ok((await call("entry", "POST", { date: today, kind: "workout" })).status === 40
 const e1 = await call("entry", "POST", { member_id: anna, date: today, kind: "workout", note: "8 km Laufen", device: "devA" });
 ok(e1.status === 200 && e1.data.id, "Einheit angelegt");
 await call("entry", "POST", { member_id: anna, date: today, kind: "workout", meta: { Distanz: "8,02 km", Dauer: "44 min" }, device: "devA" });
-await call("entry", "POST", { member_id: ben, date: today, kind: "sick", units: 2, device: "devB" });
+await call("entry", "POST", { member_id: ben, date: today, kind: "sick", units: 2, sport: "Laufen", device: "devB" });
 s = await state();
 ok(s.entries.length === 3, "drei Einträge in der Liste");
 const sickEntry = s.entries.find(e => e.kind === "sick");
 ok(sickEntry.units === 2, "Krankmeldung zählt 2 Einheiten");
 ok(JSON.parse(s.entries.find(e => e.meta).meta).Distanz === "8,02 km", "GPX-Metadaten gespeichert");
+ok(s.entries.find(e => e.kind === "sick").sport === null, "Krankmeldung bekommt keine Sportart");
+const sporty = await call("entry", "POST", { member_id: anna, date: today, kind: "workout", sport: "Bouldern", device: "devA" });
+ok((await state()).entries.find(e => e.id === sporty.data.id).sport === "Bouldern", "Sportart wird gespeichert");
+await call("entry/" + sporty.data.id, "DELETE");
+const longSport = await call("entry", "POST", { member_id: anna, date: today, kind: "workout", sport: "x".repeat(200), device: "devA" });
+ok((await state()).entries.find(e => e.id === longSport.data.id).sport.length === 40, "überlange Sportart wird gekürzt");
+await call("entry/" + longSport.data.id, "DELETE");
 ok(s.entries.every(e => e.hasPhoto === 0 || e.hasPhoto === false), "ohne Foto kein Foto-Flag");
 
 console.log("\n== Foto ==");

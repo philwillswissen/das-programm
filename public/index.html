@@ -52,7 +52,6 @@ label{font-size:13px;color:var(--mut);display:block;margin-top:10px}
 .row>*{flex:1;margin:4px 0}
 .row>.x,.row>.s{flex:0 0 auto}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:9}
-nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:11px;font-weight:600}
 nav a b{display:block;font-size:19px;font-weight:400;line-height:1.3}
 nav a.on{color:var(--acc)}
 body.locked nav,body.locked #install,body.locked #backdrop{display:none}
@@ -67,6 +66,23 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .bar{height:6px;border-radius:4px;background:var(--chip);overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--acc)}
 .flex{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hero{background:linear-gradient(140deg,#16a34a,#0d9488);color:#fff;border:0;text-align:center;padding:22px 16px}
+.hero .flame{font-size:40px;line-height:1}
+.hero .big{font-size:38px;margin-top:2px}
+.hero .sub,.hero h2{color:rgba(255,255,255,.88)}
+.hero .bar{background:rgba(255,255,255,.28);margin:14px 0 6px}
+.hero .bar i{background:#fff}
+.nudge{display:flex;gap:12px;align-items:center;background:var(--chip);border:1px solid var(--line)}
+.nudge .ic{font-size:26px;flex:0 0 auto}
+.nudge .tx{flex:1;min-width:0}
+.nudge b{display:block;font-size:15px}
+.day{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 6px 2px}
+.day:first-child{margin-top:0}
+.post{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-bottom:10px}
+.post .who{display:flex;align-items:center;gap:9px}
+.post .av{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
+.post .act{font-size:16px;margin-top:9px}
+nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:10px;font-weight:600}
 #backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:29}
 #backdrop.on{opacity:1;pointer-events:auto}
 #install{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;
@@ -86,7 +102,8 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 <body>
 <main id="app"><div class="card">Lade…</div></main>
 <nav>
-  <a href="#home"><b>📊</b>Start</a>
+  <a href="#home"><b>🔥</b>Start</a>
+  <a href="#feed"><b>📣</b>Feed</a>
   <a href="#add"><b>➕</b>Eintrag</a>
   <a href="#set"><b>⚙️</b>Einstellungen</a>
 </nav>
@@ -102,6 +119,17 @@ const todayISO = () => { const d = new Date(); return d.getFullYear() + "-" + pa
 const weekOf = s => { const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 const addW = (w, n) => { const d = new Date(w + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 7 * n); return d.toISOString().slice(0, 10); };
 const dm = s => s.slice(8) + "." + s.slice(5, 7) + ".";
+const daysLeft = () => 7 - ((new Date().getDay() + 6) % 7);
+const WD = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+const relDay = iso => {
+  const d = new Date(iso + "T12:00:00"), t = new Date(todayISO() + "T12:00:00");
+  const diff = Math.round((t - d) / 864e5);
+  if (diff === 0) return "Heute";
+  if (diff === 1) return "Gestern";
+  if (diff === 2) return "Vorgestern";
+  if (diff > 0 && diff < 7) return WD[d.getDay()];
+  return WD[d.getDay()].slice(0, 2) + ", " + dm(iso) + (d.getFullYear() !== t.getFullYear() ? d.getFullYear() : "");
+};
 const money = (n, c) => (Math.round(n * 100) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + c;
 
 /* ---------- Installation ---------- */
@@ -256,18 +284,12 @@ function viewHome() {
   const st = {}; for (const m of D.members) st[m.id] = stats(m);
   const kasse = D.members.reduce((a, m) => a + st[m.id].paid, 0) - D.expenses.reduce((a, x) => a + x.amount, 0);
   const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
-  const nameOf = id => esc(D.members.find(m => m.id === id)?.name || "?");
   const board = [...D.members].sort((a, b) => st[b.id].sessions - st[a.id].sessions || st[a.id].paid - st[b.id].paid);
 
   const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
     <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
 
-  return whoCard + `
-  <div class="card">
-    <div class="flex"><div><h2>Kassenstand</h2><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div></div></div>
-    <div class="sub">${money(D.members.reduce((a, m) => a + st[m.id].paid, 0), c)} eingezahlt · ${money(D.expenses.reduce((a, x) => a + x.amount, 0), c)} ausgegeben</div>
-  </div>
-
+  return whoCard + hero(st) + pushNudge() + `
   <div class="card"><h2>Diese Woche · ab ${dm(cur)} · Ziel ${s.required}</h2><table>
     ${D.members.map(m => {
       const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
@@ -293,16 +315,78 @@ function viewHome() {
       <td>${st[m.id].sessions}</td><td>${st[m.id].missed}/${st[m.id].weeks}</td><td>${money(st[m.id].paid, c)}</td></tr>`).join("")}
   </table></div>
 
-  <div class="card"><h2>Verlauf</h2>
-    ${D.entries.slice(0, 20).map(e => `<div class="item">
-      <div class="flex"><div><b>${nameOf(e.member_id)}</b> <span class="sub">${dm(e.date)}</span></div>
-      <button class="x" onclick="delEntry(${e.id})">✕</button></div>
-      <div>${e.kind === "sick" ? "🤒 Krankmeldung (" + (e.units || 1) + ")" : "🏃 Sporteinheit"}</div>
-      ${e.note ? `<div class="sub">${esc(e.note)}</div>` : ""}
-      ${e.meta ? Object.entries(JSON.parse(e.meta)).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("") : ""}
-      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.id}" alt="">` : ""}
-    </div>`).join("") || '<div class="sub">Noch keine Einträge.</div>'}
+  <div class="card">
+    <div class="flex"><div><h2>Kassenstand</h2><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div></div></div>
+    <div class="sub">${money(D.members.reduce((a, m) => a + st[m.id].paid, 0), c)} eingezahlt · ${money(D.expenses.reduce((a, x) => a + x.amount, 0), c)} ausgegeben</div>
   </div>`;
+}
+
+// Oben steht, was antreibt: die eigene Serie und was diese Woche noch fehlt.
+function hero(st) {
+  const s = D.settings, cur = weekOf(todayISO());
+  if (!me) return "";
+  const mine = st[me], cr = credit(me, cur), left = Math.max(0, s.required - cr), days = daysLeft();
+  const pct = Math.min(100, s.required ? cr / s.required * 100 : 100);
+  const headline = mine.streak
+    ? `<div class="flame">🔥</div><div class="big">${mine.streak} ${mine.streak === 1 ? "Woche" : "Wochen"}</div><div class="sub">am Stück geschafft</div>`
+    : `<div class="flame">💪</div><div class="big">Los geht's</div><div class="sub">Diese Woche startet deine Serie</div>`;
+  const line = left === 0
+    ? `Diese Woche erledigt · ${cr} ${cr === 1 ? "Einheit" : "Einheiten"}`
+      + (mine.streak > 1 ? " · Serie hält" : "")
+    : `Noch ${left} ${left === 1 ? "Einheit" : "Einheiten"} in ${days} ${days === 1 ? "Tag" : "Tagen"}`
+      + ` · ${cr} von ${s.required}`;
+  return `<div class="card hero">${headline}
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="sub">${line}</div></div>`;
+}
+
+// Bleibt stehen, bis Push auf diesem Gerät läuft.
+function pushNudge() {
+  if (localStorage.pushOn === "1") return "";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "";
+  if (!D.vapidPublicKey) return "";
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (Notification.permission === "denied")
+    return `<div class="card nudge"><div class="ic">🔕</div><div class="tx"><b>Benachrichtigungen blockiert</b>
+      <div class="sub">In den Einstellungen deines Browsers für diese Seite wieder erlauben.</div></div></div>`;
+  if (ios && !standalone)
+    return `<div class="card nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen</b>
+      <div class="sub">Dafür die App erst zum Home-Bildschirm hinzufügen.</div></div>
+      <button class="s" onclick="showInstall(true)">Wie?</button></div>`;
+  return `<div class="card nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen einschalten</b>
+    <div class="sub">Sonst verpasst du, wenn jemand eine Einheit einträgt.</div></div>
+    <button class="s" onclick="togglePush()">Einschalten</button></div>`;
+}
+
+/* ---------- Feed ---------- */
+function viewFeed() {
+  if (!D.members.length) return onboarding();
+  const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
+  if (!D.entries.length)
+    return `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
+      <button onclick="location.hash='#add'">Einheit eintragen</button></div>`;
+
+  const days = [];
+  for (const e of D.entries) {
+    if (!days.length || days[days.length - 1].date !== e.date) days.push({ date: e.date, items: [] });
+    days[days.length - 1].items.push(e);
+  }
+  return days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
+    const n = nameOf(e.member_id);
+    const meta = e.meta ? Object.entries(JSON.parse(e.meta)) : [];
+    return `<div class="post">
+      <div class="who"><div class="av">${esc(n.slice(0, 1).toUpperCase())}</div>
+        <div style="flex:1"><b>${esc(n)}</b>${e.member_id === me ? ' <span class="chip">du</span>' : ""}</div>
+        <button class="x" onclick="delEntry(${e.id})">✕</button></div>
+      <div class="act">${e.kind === "sick"
+        ? "🤒 Krankmeldung (" + (e.units || 1) + " " + ((e.units || 1) === 1 ? "Einheit" : "Einheiten") + ")"
+        : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
+      ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
+      ${meta.length ? `<div style="margin-top:4px">${meta.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("")}</div>` : ""}
+      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.id}" alt="">` : ""}
+    </div>`;
+  }).join("")).join("");
 }
 
 function onboarding() {
@@ -320,6 +404,39 @@ async function setupMembers() {
 }
 function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); }
 
+/* ---------- Sportarten ---------- */
+const SPORTS = [["Laufen","🏃"],["Joggen","🏃"],["Trailrunning","⛰️"],["Laufband","🏃"],["Gehen","🚶"],["Spazieren","🚶"],["Nordic Walking","🚶"],["Wandern","🥾"],["Treppensteigen","🪜"],["Radfahren","🚴"],["Rennrad","🚴"],["Mountainbike","🚵"],["Gravelbike","🚴"],["E-Bike","🚴"],["Indoor-Cycling","🚴"],["Spinning","🚴"],["Schwimmen","🏊"],["Freiwasserschwimmen","🏊"],["Aquafitness","🏊"],["Tauchen","🤿"],["Krafttraining","🏋️"],["Gerätetraining","🏋️"],["Fitnessstudio","🏋️"],["Calisthenics","🤸"],["Functional Training","🏋️"],["Zirkeltraining","🔁"],["HIIT","🔥"],["Crossfit","🏋️"],["Seilspringen","🪢"],["Bauch-Beine-Po","🏋️"],["Rudern","🚣"],["Ruderergometer","🚣"],["Crosstrainer","🏃"],["Stepper","🪜"],["Yoga","🧘"],["Pilates","🧘"],["Stretching","🤸"],["Mobility","🤸"],["Rückentraining","🧘"],["Physiotherapie","🩺"],["Tanzen","💃"],["Zumba","💃"],["Aerobic","💃"],["Fußball","⚽"],["Basketball","🏀"],["Handball","🤾"],["Volleyball","🏐"],["Beachvolleyball","🏐"],["Hockey","🏑"],["Rugby","🏉"],["Baseball","⚾"],["Tennis","🎾"],["Tischtennis","🏓"],["Badminton","🏸"],["Squash","🎾"],["Padel","🎾"],["Golf","⛳"],["Klettern","🧗"],["Bouldern","🧗"],["Turnen","🤸"],["Leichtathletik","🏃"],["Triathlon","🏊"],["Boxen","🥊"],["Kickboxen","🥊"],["Kampfsport","🥋"],["Judo","🥋"],["Karate","🥋"],["Taekwondo","🥋"],["Ringen","🤼"],["Fechten","🤺"],["Skifahren","⛷️"],["Snowboard","🏂"],["Langlauf","🎿"],["Skitour","🎿"],["Schneeschuhwandern","🥾"],["Eislaufen","⛸️"],["Eishockey","🏒"],["Rodeln","🛷"],["Surfen","🏄"],["Stand-up-Paddling","🏄"],["Kitesurfen","🪁"],["Segeln","⛵"],["Kajak","🛶"],["Kanu","🛶"],["Inlineskaten","🛼"],["Skateboard","🛹"],["Reiten","🏇"],["Bogenschießen","🏹"],["Gartenarbeit","🪴"],["Sonstiges","🏅"]];
+const sportIcon = name => {
+  const n = String(name || "").trim().toLowerCase();
+  if (!n) return "🏃";
+  const hit = SPORTS.find(s => s[0].toLowerCase() === n) || SPORTS.find(s => n.includes(s[0].toLowerCase()));
+  return hit ? hit[1] : "🏅";
+};
+// englische Bezeichnungen aus GPX/TCX auf die Liste abbilden
+const SPORT_ALIASES = {
+  running: "Laufen", run: "Laufen", trail_running: "Trailrunning", treadmill: "Laufband",
+  walking: "Gehen", walk: "Gehen", hiking: "Wandern", hike: "Wandern",
+  cycling: "Radfahren", biking: "Radfahren", ride: "Radfahren", road_biking: "Rennrad",
+  mountain_biking: "Mountainbike", gravel_cycling: "Gravelbike", indoor_cycling: "Indoor-Cycling", ebikeride: "E-Bike",
+  swimming: "Schwimmen", lap_swimming: "Schwimmen", open_water_swimming: "Freiwasserschwimmen",
+  strength_training: "Krafttraining", weighttraining: "Krafttraining", workout: "Krafttraining",
+  rowing: "Rudern", elliptical: "Crosstrainer", stairclimbing: "Treppensteigen",
+  yoga: "Yoga", pilates: "Pilates", hiit: "HIIT", crossfit: "Crossfit",
+  soccer: "Fußball", football: "Fußball", basketball: "Basketball", tennis: "Tennis", golf: "Golf",
+  rock_climbing: "Klettern", bouldering: "Bouldern", boxing: "Boxen",
+  alpine_ski: "Skifahren", backcountry_skiing: "Skitour", snowboard: "Snowboard", cross_country_skiing: "Langlauf",
+  surfing: "Surfen", standuppaddling: "Stand-up-Paddling", kayaking: "Kajak", sailing: "Segeln",
+  inline_skating: "Inlineskaten", skateboarding: "Skateboard", horseback_riding: "Reiten",
+};
+const normSport = raw => {
+  const v = String(raw || "").trim();
+  if (!v) return "";
+  const key = v.toLowerCase().replace(/[\s-]+/g, "_");
+  if (SPORT_ALIASES[key]) return SPORT_ALIASES[key];
+  const hit = SPORTS.find(s => s[0].toLowerCase() === v.toLowerCase());
+  return hit ? hit[0] : v.slice(0, 40);
+};
+
 /* ---------- Eintrag ---------- */
 function viewAdd() {
   if (!D.members.length) return onboarding();
@@ -329,6 +446,10 @@ function viewAdd() {
     <select id="who">${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
     <label>Was?</label>
     <div class="seg"><button id="k-workout" class="on" onclick="setKind('workout')">🏃 Sporteinheit</button><button id="k-sick" onclick="setKind('sick')">🤒 Krank</button></div>
+    <div id="sportBox"><label>Welche Sportart?</label>
+      <input id="sport" list="sportList" autocomplete="off" placeholder="tippen oder aus der Liste wählen"
+        value="${esc(localStorage.lastSport || "")}">
+      <datalist id="sportList">${SPORTS.map(x => `<option value="${esc(x[0])}">`).join("")}</datalist></div>
     <div id="unitsBox" style="display:none"><label>Krankmeldung zählt als … Einheiten dieser Woche</label>
       <select id="units">${Array.from({ length: Math.max(1, s.required) }, (_, i) => `<option value="${i + 1}"${i + 1 === Math.max(1, s.required) ? " selected" : ""}>${i + 1}</option>`).join("")}</select></div>
     <label>Datum</label><input type="date" id="date" value="${todayISO()}" max="${todayISO()}">
@@ -346,6 +467,7 @@ function setKind(k) {
   $("#k-workout").classList.toggle("on", k === "workout");
   $("#k-sick").classList.toggle("on", k === "sick");
   $("#unitsBox").style.display = k === "sick" ? "" : "none";
+  $("#sportBox").style.display = k === "sick" ? "none" : "";
 }
 
 /* --- GPX / TCX --- */
@@ -436,6 +558,11 @@ async function preview() {
       const meta = low.endsWith(".gpx") ? parseGpx(xml) : parseTcx(xml);
       if (!meta) throw new Error("Keine Aktivitätsdaten gefunden.");
       pending = { meta };
+      if (meta.Sport) {
+        const field = $("#sport");
+        if (field) field.value = normSport(meta.Sport);
+        delete meta.Sport;
+      }
       box.innerHTML = Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("");
     } else if (f.type.startsWith("image/")) {
       const photo = await shrink(f);
@@ -453,10 +580,12 @@ async function save() {
       member_id: +$("#who").value, kind,
       units: kind === "sick" ? +$("#units").value : 1,
       date: $("#date").value || todayISO(),
+      sport: kind === "sick" ? "" : normSport($("#sport").value),
       note: $("#note").value, device,
       ...(pending || {}),
     };
     await api("entry", "POST", body);
+    if (body.sport) localStorage.lastSport = body.sport;
     if (!me) { me = body.member_id; localStorage.me = me; }
     pending = null;
     toast(kind === "sick" ? "Krankmeldung gespeichert." : "Einheit gespeichert. 💪");
@@ -573,7 +702,7 @@ async function syncPushMember() {
 }
 
 /* ---------- Router ---------- */
-const views = { home: viewHome, add: viewAdd, set: viewSet };
+const views = { home: viewHome, feed: viewFeed, add: viewAdd, set: viewSet };
 function render() {
   if (!D) return;
   const h = location.hash.slice(1);

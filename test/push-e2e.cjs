@@ -68,7 +68,7 @@ async function decrypt(dev, buf) {
 
   console.log("\n== Neue Einheit -> Push an alle anderen ==");
   received.length = 0;
-  await api("entry", "POST", { member_id: anna, kind: "workout", date: new Date().toISOString().slice(0, 10), note: "10 km Lauf", device: "devAnna" });
+  await api("entry", "POST", { member_id: anna, kind: "workout", date: new Date().toISOString().slice(0, 10), sport: "Laufen", note: "10 km Lauf", device: "devAnna" });
   await new Promise(r => setTimeout(r, 1500));
   ok(received.length === 1, `genau eine Nachricht verschickt (${received.length})`);
   ok(received[0]?.path === "/ben", "Empfänger ist Bens Gerät, nicht das eintragende");
@@ -77,7 +77,7 @@ async function decrypt(dev, buf) {
   ok(received[0]?.headers.ttl === "86400", "TTL gesetzt");
   const msg = await decrypt(dBen, received[0].body);
   ok(msg.title === "Das Programm", "Titel der Benachrichtigung");
-  ok(msg.body === "Anna hat eine Einheit eingetragen: 10 km Lauf", "Text nennt Person und Kommentar: „" + msg.body + "“");
+  ok(msg.body === "Anna hat Laufen eingetragen: 10 km Lauf", "Text nennt Person, Sportart und Kommentar: „" + msg.body + "“");
 
   console.log("\n== Krankmeldung ==");
   received.length = 0;

@@ -145,9 +145,10 @@ const api = (p, method = "GET", body) =>
   ok(gpxChips.some(c => c.startsWith("Distanz") && c.includes("4,0")), "GPX: Distanz erkannt (" + gpxChips.join(" ") + ")");
   ok(gpxChips.some(c => c === "Dauer: 20 min"), "GPX: Dauer erkannt");
   ok(gpxChips.some(c => /^Tempo: \d+:[0-5]\d \/km$/.test(c)), "GPX: Tempo korrekt formatiert (" + gpxChips.find(c => c.startsWith("Tempo")) + ")");
+  ok(await page.inputValue("#sport") === "Laufen", "GPX: „running“ füllt die Sportart als „Laufen“");
   await page.fill("#note", "Morgenlauf im Park");
   await page.click("#saveBtn:not([disabled])");
-  await page.waitForSelector('.item:has-text("Morgenlauf im Park")');
+  await go("feed", '.post:has-text("Morgenlauf im Park")');
   ok(true, "Einheit mit GPX gespeichert und im Verlauf sichtbar");
 
   console.log("\n== Eintrag mit TCX ==");
@@ -158,31 +159,66 @@ const api = (p, method = "GET", body) =>
   ok(tcx.includes("Dauer: 45 min"), "TCX: Dauer summiert");
   ok(tcx.includes("Puls: 140 bpm"), "TCX: Durchschnittspuls");
   ok(tcx.includes("kcal: 600"), "TCX: Kalorien summiert");
-  ok(tcx.includes("Sport: Biking"), "TCX: Sportart erkannt");
+  ok(!tcx.some(c => c.startsWith("Sport:")), "TCX: Sportart steht nicht mehr als Chip");
+  ok(await page.inputValue("#sport") === "Radfahren", "TCX: „Biking“ füllt die Sportart als „Radfahren“");
   await page.click("#saveBtn:not([disabled])");
-  await page.waitForSelector('.item:has-text("18,00 km")');
+  await go("feed", '.post:has-text("18,00 km")');
   ok(true, "TCX-Einheit gespeichert");
+
+  console.log("\n== Sportart ==");
+  await go("add", "#sport");
+  ok(await page.isVisible("#sport"), "Feld für die Sportart ist da");
+  const options = await page.$$eval("#sportList option", els => els.map(e => e.value));
+  ok(options.length > 60, options.length + " Sportarten stehen als Vorschlag bereit");
+  for (const name of ["Laufen", "Radfahren", "Schwimmen", "Krafttraining", "Yoga", "Fußball", "Klettern", "Skifahren"])
+    if (!options.includes(name)) ok(false, "Vorschlagsliste enthält " + name);
+  ok(true, "gängige Sportarten sind in der Liste");
+  await page.fill("#sport", "Hornussen");
+  await page.fill("#note", "eigene Sportart");
+  await page.click("#saveBtn:not([disabled])");
+  await go("feed", '.post:has-text("Hornussen")');
+  ok(true, "freie Eingabe außerhalb der Liste wird übernommen");
+  await page.waitForSelector('.post:has-text("🏅 Hornussen")');
+  ok(true, "unbekannte Sportart bekommt ein neutrales Symbol");
+  await go("add", "#sport");
+  ok(await page.inputValue("#sport") === "Hornussen", "zuletzt genutzte Sportart ist vorbelegt");
+  await page.fill("#sport", "Bouldern");
+  await page.click("#saveBtn:not([disabled])");
+  await go("feed", '.post:has-text("🧗 Bouldern")');
+  ok(true, "bekannte Sportart bekommt ihr eigenes Symbol");
+  await go("add", "#sport");
+  await page.click('button:has-text("🤒 Krank")');
+  ok(!(await page.isVisible("#sport")), "bei einer Krankmeldung verschwindet das Feld");
+  await page.click('button:has-text("🏃 Sporteinheit")');
+  ok(await page.isVisible("#sport"), "und kommt zurück");
 
   console.log("\n== Foto ==");
   await go("add", "#saveBtn:not([disabled])"); await page.setInputFiles("#file", FIX + "selfie.jpg");
   await page.waitForSelector("#prev img");
   ok(await page.evaluate(() => document.querySelector("#prev img").src.startsWith("data:image/jpeg")), "Foto wird verkleinert und angezeigt");
   await page.click("#saveBtn:not([disabled])");
-  await page.waitForSelector("img.ph");
-  ok(await page.$$eval("img.ph", els => els.some(e => e.naturalWidth > 0)), "Foto wird im Verlauf geladen");
+  await go("feed", "img.ph");
+  await page.waitForFunction(() => [...document.querySelectorAll("img.ph")].some(e => e.naturalWidth > 0));
+  ok(true, "Foto wird im Feed geladen");
 
   console.log("\n== Wochenzählung und Strafen ==");
   const anna = (await api("state")).members.find(m => m.name === "Anna").id;
   const st = await waitFor(async () => {
     const x = await api("state");
-    return x.entries.filter(e => e.member_id === anna).length === 3 ? x : null;
+    return x.entries.filter(e => e.member_id === anna).length === 5 ? x : null;
   }) || (await api("state"));
-  ok(st.entries.filter(e => e.member_id === anna).length === 3,
-     "drei Einträge für Anna (" + st.entries.filter(e => e.member_id === anna).length + ")");
-  await page.reload({ waitUntil: "networkidle" });  // frischer Stand, D1-Repliken hinken kurz nach
-  await page.waitForSelector('h2:has-text("Diese Woche")');
-  const weekRow = (await page.textContent('.card:has(h2:has-text("Diese Woche")) table')).replace(/\s+/g, " ").trim();
-  ok(/Anna[^|]*3 \/ 2/.test(weekRow), "aktuelle Woche zählt Annas 3 Einheiten gegen das Ziel 2 (" + weekRow.slice(0, 60) + ")");
+  ok(st.entries.filter(e => e.member_id === anna).length === 5,
+     "fünf Einträge für Anna (" + st.entries.filter(e => e.member_id === anna).length + ")");
+  // Frischer Stand. D1-Repliken hinken kurz nach, deshalb notfalls noch einmal laden.
+  let weekRow = "";
+  for (let i = 0; i < 6; i++) {
+    await page.goto(BASE + "/#home", { waitUntil: "networkidle" });
+    await page.waitForSelector('h2:has-text("Diese Woche")');
+    weekRow = (await page.textContent('.card:has(h2:has-text("Diese Woche")) table')).replace(/\s+/g, " ").trim();
+    if (/Anna[^|]*5 \/ 2/.test(weekRow)) break;
+    await sleep(1200);
+  }
+  ok(/Anna[^|]*5 \/ 2/.test(weekRow), "aktuelle Woche zählt Annas 5 Einheiten gegen das Ziel 2 (" + weekRow.slice(0, 60) + ")");
   ok((await page.textContent("body")).includes("🔥"), "Streak wird angezeigt");
 
   console.log("\n== Krankmeldung ==");
@@ -192,9 +228,33 @@ const api = (p, method = "GET", body) =>
   ok(await page.isVisible("#unitsBox"), "Krankmeldung zeigt die Einheiten-Auswahl");
   await page.selectOption("#units", "2");
   await page.click("#saveBtn:not([disabled])");
-  await page.waitForSelector('.item:has-text("Krankmeldung (2)")');
+  await go("feed", '.post:has-text("Krankmeldung")');
   ok(true, "Krankmeldung über zwei Einheiten gespeichert");
   ok((await page.textContent("body")).includes("🤒"), "Krankmeldung erscheint in der Wochenübersicht");
+
+  console.log("\n== Startseite ==");
+  await page.goto(BASE + "/#home", { waitUntil: "networkidle" });
+  await page.waitForSelector(".hero");
+  const cards = await page.$$eval(".card", els => els.map(e => e.className));
+  ok(cards[0].includes("hero"), "ganz oben steht die eigene Serie, nicht die Kasse");
+  const heroTx = (await page.textContent(".hero")).replace(/\s+/g, " ").trim();
+  ok(/\u{1F525}|\u{1F4AA}/u.test(heroTx), "Hero motiviert: " + heroTx.slice(0, 55));
+  const bodyTx = await page.textContent("body");
+  ok(bodyTx.includes("Kassenstand"), "Kassenstand ist weiterhin da");
+  ok(bodyTx.indexOf("Diese Woche") < bodyTx.indexOf("Kassenstand"), "Kassenstand steht jetzt weiter unten");
+  ok(bodyTx.includes("Benachrichtigungen einschalten") || bodyTx.includes("Home-Bildschirm"),
+     "Aufforderung fuer Benachrichtigungen steht auf der Startseite");
+
+  console.log("\n== Feed ==");
+  await go("feed", ".post");
+  const posts = await page.$$(".post");
+  ok(posts.length >= 5, posts.length + " Eintraege im Feed");
+  const feedTx = await page.textContent("#app");
+  ok(feedTx.includes("Heute"), "nach Tagen gruppiert (Heute)");
+  ok(/Anna|Ben/.test(feedTx), "zeigt, wer es war");
+  ok(feedTx.includes("18,00 km") && feedTx.includes("140 bpm"), "zeigt die Werte aus der hochgeladenen Datei");
+  ok((await page.$$("img.ph")).length >= 1, "zeigt das hochgeladene Bild");
+  ok((await page.$$(".post .av")).length >= 5, "jeder Eintrag hat ein Namenskuerzel");
 
   console.log("\n== Einstellungen ==");
   await go("set", "#req");

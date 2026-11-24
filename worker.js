@@ -29,7 +29,7 @@ function serveAsset(path) {
 
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, joined TEXT)",
-  "CREATE TABLE IF NOT EXISTS entries(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, units INTEGER DEFAULT 1, note TEXT, meta TEXT, photo TEXT, created TEXT)",
+  "CREATE TABLE IF NOT EXISTS entries(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, units INTEGER DEFAULT 1, sport TEXT, note TEXT, meta TEXT, photo TEXT, created TEXT)",
   "CREATE TABLE IF NOT EXISTS expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, title TEXT, amount REAL)",
   "CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT)",
   "CREATE TABLE IF NOT EXISTS subs(device TEXT PRIMARY KEY, member_id INTEGER, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT)",
@@ -50,13 +50,20 @@ const today = () => new Date().toISOString().slice(0, 10);
 const isDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
 const clean = (s, max) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
+// Nachträgliche Spalten: SQLite kennt kein ADD COLUMN IF NOT EXISTS,
+// ein zweiter Versuch scheitert also und wird bewusst verschluckt.
+const ALTERS = ["ALTER TABLE entries ADD COLUMN sport TEXT"];
+
 let migrated;
 async function migrate(db) {
   if (!migrated) {
-    migrated = db.batch(SCHEMA.map((s) => db.prepare(s))).catch((e) => {
-      migrated = null;
-      throw e;
-    });
+    migrated = db
+      .batch(SCHEMA.map((s) => db.prepare(s)))
+      .then(() => Promise.all(ALTERS.map((a) => db.prepare(a).run().catch(() => {}))))
+      .catch((e) => {
+        migrated = null;
+        throw e;
+      });
   }
   await migrated;
 }
@@ -76,10 +83,11 @@ async function notify(env, db, entry, member, fromDevice) {
     .all();
   if (!results.length) return;
 
+  const what = entry.sport ? entry.sport : "eine Einheit";
   const body =
     entry.kind === "sick"
       ? `${member} hat sich für diese Woche krankgemeldet.`
-      : `${member} hat eine Einheit eingetragen${entry.note ? ": " + entry.note : "."}`;
+      : `${member} hat ${what} eingetragen${entry.note ? ": " + entry.note : "."}`;
   const msg = { title: "Das Programm", body, tag: "entry-" + entry.id };
 
   await Promise.all(
@@ -134,7 +142,7 @@ export default {
         const [members, entries, expenses] = await Promise.all([
           all("SELECT id,name,joined FROM members ORDER BY id"),
           all(
-            "SELECT id,member_id,date,kind,units,note,meta,created,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
+            "SELECT id,member_id,date,kind,units,sport,note,meta,created,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
           all("SELECT id,date,title,amount FROM expenses ORDER BY date DESC, id DESC"),
         ]);
@@ -168,6 +176,7 @@ export default {
         const date = isDate(body.date) ? body.date : today();
         const units = kind === "sick" ? Math.min(Math.max(Number(body.units) || 1, 1), 10) : 1;
         const note = clean(body.note, 300);
+        const sport = kind === "sick" ? null : clean(body.sport, 40) || null;
         const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") ? body.photo : null;
         if (photo && photo.length > MAX_PHOTO) return json({ error: "Foto zu groß." }, 413);
         let meta = null;
@@ -179,14 +188,14 @@ export default {
 
         const res = await db
           .prepare(
-            "INSERT INTO entries(member_id,date,kind,units,note,meta,photo,created) VALUES(?,?,?,?,?,?,?,?)"
+            "INSERT INTO entries(member_id,date,kind,units,sport,note,meta,photo,created) VALUES(?,?,?,?,?,?,?,?,?)"
           )
-          .bind(memberId, date, kind, units, note, meta, photo, new Date().toISOString())
+          .bind(memberId, date, kind, units, sport, note, meta, photo, new Date().toISOString())
           .run();
         const id = res.meta?.last_row_id;
 
         ctx.waitUntil(
-          notify(env, db, { id, kind, note }, member.name, clean(body.device, 64)).catch((e) =>
+          notify(env, db, { id, kind, note, sport }, member.name, clean(body.device, 64)).catch((e) =>
             console.log("notify failed", String(e))
           )
         );

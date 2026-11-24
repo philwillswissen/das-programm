@@ -9,11 +9,16 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 
 ## Was die App kann
 
-- **Start** – Kassenstand, laufende Woche mit Fortschritt und Streak, letzte vier Wochen,
-  Rangliste und Verlauf aller Einträge.
+- **Start** – ganz oben die eigene Serie und was diese Woche noch fehlt, darunter
+  die laufende Woche, die letzten vier Wochen, die Rangliste und der Kassenstand.
+  Solange Push auf dem Gerät aus ist, steht dort eine Aufforderung zum Einschalten.
+- **Feed** – nach Tagen gruppiert: wer wann was gemacht hat, mit Kommentar, Foto und
+  den Werten aus einer hochgeladenen GPX- oder TCX-Datei.
 - **Eintrag** – Person, Sporteinheit oder Krankmeldung, Datum, Kommentar, dazu optional
   ein Foto oder eine Aktivitätsdatei (**GPX** und **TCX** aus Strava, Garmin, Komoot).
-  Distanz, Dauer, Tempo, Puls und Kalorien werden daraus übernommen.
+  Distanz, Dauer, Tempo, Puls und Kalorien werden daraus übernommen. Die Sportart
+  wählst du aus rund 90 Vorschlägen oder tippst sie frei ein; aus der Datei wird sie
+  automatisch erkannt.
 - **Push** – Alle anderen Geräte bekommen eine Benachrichtigung, sobald jemand etwas
   einträgt. Pro Gerät an- und abschaltbar, mit Testbenachrichtigung.
 - **Einstellungen** – Einheiten pro Woche, Strafbetrag, Währung, Startdatum, wie viele
@@ -46,7 +51,7 @@ cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
 npx wrangler dev
 ```
 
-Tests gegen den laufenden `wrangler dev` (125 Prüfungen):
+Tests gegen den laufenden `wrangler dev` (150 Prüfungen):
 
 ```bash
 npm test
