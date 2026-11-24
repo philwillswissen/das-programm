@@ -3,6 +3,12 @@
 const http = require("node:http");
 const { webcrypto: c } = require("node:crypto");
 const BASE = process.env.BASE || "http://127.0.0.1:8787";
+if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(BASE) && process.env.ALLOW_LIVE_WIPE !== "1") {
+  console.error("\nDieser Test leert die Datenbank und laeuft deshalb nur gegen einen lokalen Server.");
+  console.error("BASE ist " + BASE + " - abgebrochen.\n");
+  process.exit(2);
+}
+
 let pass = 0, fail = 0;
 const ok = (x, m) => (x ? (pass++, console.log("  ✓ " + m)) : (fail++, console.log("  ✗ " + m)));
 const b64u = { enc: b => Buffer.from(b).toString("base64url"), dec: s => new Uint8Array(Buffer.from(s, "base64url")) };

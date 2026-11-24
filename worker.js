@@ -10,23 +10,46 @@ import icon512 from "./public/icon-512.png";
 import iconMaskable from "./public/icon-maskable.png";
 
 const HTML = "text/html; charset=utf-8";
-const LONG = "public, max-age=31536000, immutable";
-const FRESH = "public, max-age=0, must-revalidate";
-const ASSETS = {
-  "/index.html": [indexHtml, HTML, FRESH],
-  "/sw.js": [swJs, "text/javascript; charset=utf-8", FRESH],
-  "/manifest.json": [manifestJson, "application/manifest+json; charset=utf-8", FRESH],
-  "/icon.svg": [iconSvg, "image/svg+xml", LONG],
-  "/icon-192.png": [icon192, "image/png", LONG],
-  "/icon-512.png": [icon512, "image/png", LONG],
-  "/icon-maskable.png": [iconMaskable, "image/png", LONG],
-};
 
-function serveAsset(path) {
+// Jede Datei bekommt ein ETag aus ihrem Inhalt. Gecacht wird mit Rueckfrage:
+// unveraenderte Dateien kosten nur ein 304, geaenderte sind sofort da.
+// (Vorher lagen die Icons mit "immutable" ein Jahr im Browsercache - ein
+// neues Logo waere bei niemandem angekommen.)
+function etagOf(data) {
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
+  let a = 2166136261, b = 1099511628;
+  for (let i = 0; i < bytes.length; i++) {
+    a = Math.imul(a ^ bytes[i], 16777619);
+    b = Math.imul((b + bytes[i]) ^ (b >>> 7), 2654435761);
+  }
+  return `"${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}${bytes.length.toString(36)}"`;
+}
+
+const ASSETS = Object.fromEntries(
+  Object.entries({
+    "/index.html": [indexHtml, HTML],
+    "/sw.js": [swJs, "text/javascript; charset=utf-8"],
+    "/manifest.json": [manifestJson, "application/manifest+json; charset=utf-8"],
+    "/icon.svg": [iconSvg, "image/svg+xml"],
+    "/icon-192.png": [icon192, "image/png"],
+    "/icon-512.png": [icon512, "image/png"],
+    "/icon-maskable.png": [iconMaskable, "image/png"],
+  }).map(([path, [body, type]]) => [path, { body, type, etag: etagOf(body) }])
+);
+
+function serveAsset(path, req) {
   const hit = ASSETS[path === "/" ? "/index.html" : path] || ASSETS["/index.html"];
-  const headers = { "content-type": hit[1], "cache-control": hit[2] };
+  const headers = {
+    "content-type": hit.type,
+    "cache-control": "no-cache",
+    etag: hit.etag,
+  };
   if (path === "/sw.js") headers["service-worker-allowed"] = "/";
-  return new Response(hit[0], { headers });
+  // Der Rand komprimiert und schwaecht dabei das ETag ("W/..."), manchmal faellt es ganz weg.
+  const asked = (req?.headers.get("if-none-match") || "")
+    .split(",").map((t) => t.trim().replace(/^W\//, ""));
+  if (asked.includes(hit.etag)) return new Response(null, { status: 304, headers });
+  return new Response(hit.body, { headers });
 }
 
 const SCHEMA = [
@@ -194,7 +217,7 @@ export default {
 
     if (!path.startsWith("/api/")) {
       if (method !== "GET" && method !== "HEAD") return new Response("Method not allowed", { status: 405 });
-      return serveAsset(path);
+      return serveAsset(path, req);
     }
     if (!env.DB) return json({ error: "Keine D1-Datenbank gebunden (wrangler.toml)." }, 500);
     const pinOf = v => String(v || "").trim().toLowerCase();

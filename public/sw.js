@@ -1,4 +1,4 @@
-const C = "dp-v1";
+const C = "dp-v2";
 const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", e => {
