@@ -17,6 +17,7 @@ const suites = [
   ["Gemeinsame Einheiten und Vorschläge", "test/social.cjs"],
   ["Guthaben", "test/bonus.cjs"],
   ["Import über intervals.icu", "test/icu.cjs"],
+  ["Zahlen und Diagramme", "test/report.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
 ];
 

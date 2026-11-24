@@ -66,6 +66,45 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .bar{height:6px;border-radius:4px;background:var(--chip);overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--acc)}
 .flex{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+/* Reihenfarben: geprüfte Standardpalette, feste Reihenfolge, nie durchgewechselt.
+   Dunkle Stufen sind dieselben Farbtöne, für die dunkle Fläche neu abgestuft. */
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;
+      --s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;
+      --bar:#16a34a;--barq:#cbd5e1}
+@media(prefers-color-scheme:dark){:root{
+      --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;
+      --s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767;
+      --bar:#22c55e;--barq:#334155}}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--chip);border-radius:12px;padding:11px 12px}
+.tile b{display:block;font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.tile span{font-size:12px;color:var(--mut)}
+
+.vbars{display:flex;align-items:flex-end;gap:4px;height:124px;position:relative;margin:14px 0 2px;padding-top:16px}
+.vbars .goal{position:absolute;left:0;right:0;border-top:1px dashed var(--mut);opacity:.75}
+.vbars .goal em{position:absolute;right:0;top:-15px;font-size:10px;font-style:normal;color:var(--mut);background:var(--card);padding:0 3px}
+.vbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:2px;cursor:default}
+.vbar i{display:block;background:var(--bar);border-radius:4px 4px 0 0;min-height:2px}
+.vbar i.q{background:var(--barq)}
+.vbar u{display:block;font-size:10px;color:var(--mut);text-align:center;text-decoration:none;line-height:1}
+.vbar em{font-size:10px;font-style:normal;color:var(--t);text-align:center;line-height:1;font-variant-numeric:tabular-nums}
+.vstack{display:flex;flex-direction:column-reverse;gap:2px;justify-content:flex-start}
+.vstack i{border-radius:0}
+.vstack i:last-child{border-radius:4px 4px 0 0}
+
+.hbar{display:grid;grid-template-columns:minmax(0,7.4em) 1fr auto;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+.hbar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar .tr{background:var(--chip);border-radius:5px;height:10px;overflow:hidden}
+.hbar .tr i{display:block;height:100%;border-radius:5px;background:var(--bar);min-width:3px}
+.hbar .vl{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px;font-size:12px;color:var(--mut)}
+.legend b{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+#tip{position:fixed;z-index:40;background:#0b1220;color:#fff;border-radius:8px;padding:6px 9px;font-size:12px;
+     pointer-events:none;opacity:0;transition:opacity .12s;white-space:nowrap;box-shadow:0 4px 16px rgba(2,6,23,.3)}
+#tip.on{opacity:.96}
 .hero{background:linear-gradient(140deg,#16a34a,#0d9488);color:#fff;border:0;text-align:center;padding:22px 16px}
 .hero .flame{font-size:40px;line-height:1}
 .hero .big{font-size:38px;margin-top:2px}
@@ -87,7 +126,7 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .who-pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .who-pick button{flex:0 0 auto;width:auto;padding:7px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;margin:0}
 .who-pick button.on{background:var(--acc);color:#fff}
-nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:10px;font-weight:600}
+nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:9.5px;font-weight:600}
 #backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:29}
 #backdrop.on{opacity:1;pointer-events:auto}
 #install{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;
@@ -110,9 +149,11 @@ nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decorat
   <a href="#home"><b>🔥</b>Start</a>
   <a href="#feed"><b>📣</b>Feed</a>
   <a href="#add"><b>➕</b>Eintrag</a>
-  <a href="#set"><b>⚙️</b>Einstellungen</a>
+  <a href="#stats"><b>📊</b>Zahlen</a>
+  <a href="#set"><b>⚙️</b>Mehr</a>
 </nav>
 <div class="toast" id="toast"></div>
+<div id="tip"></div>
 <div id="backdrop" onclick="laterInstall(false)"></div>
 <div id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle"></div>
 <script>
@@ -368,6 +409,150 @@ function pushNudge() {
   return `<div class="card nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen einschalten</b>
     <div class="sub">Sonst verpasst du, wenn jemand eine Einheit einträgt.</div></div>
     <button class="s" onclick="togglePush()">Einschalten</button></div>`;
+}
+
+/* ---------- Zahlen ---------- */
+let R = null, reportFailed = false, statsWho = "me";
+
+const loadReport = async () => {
+  try {
+    R = await (await api("report")).json();
+    reportFailed = false;
+  } catch (e) {
+    reportFailed = true;
+    toast(e.message);
+  }
+  render();
+};
+
+const nf = n => Number(n).toLocaleString("de-DE");
+const hours = h => (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10).toLocaleString("de-DE");
+const seriesColor = i => "var(--s" + ((i % 8) + 1) + ")";
+
+// Säulen: eine Reihe, Zahl über der Säule, gestrichelte Ziellinie.
+// items: [{ label, value, tip }]
+function colBars(items, goal) {
+  const max = Math.max(goal, ...items.map(x => x.value), 1);
+  const line = goal ? `<div class="goal" style="bottom:${(goal / max) * 100}%"><em>Ziel ${goal}</em></div>` : "";
+  return `<div class="vbars">${line}${items.map(x => {
+    const met = goal ? x.value >= goal : x.value > 0;
+    return `<div class="vbar" data-tip="${esc(x.tip)}">
+      <em>${x.value || ""}</em>
+      <i class="${met ? "" : "q"}" style="height:${(x.value / max) * 100}%"></i>
+      <u>${esc(x.label)}</u></div>`;
+  }).join("")}</div>`;
+}
+
+const asWeeks = weeks => weeks.map(w => ({
+  label: w.week.slice(8) + ".",
+  value: w.units,
+  tip: "Woche ab " + dm(w.week) + " · " + w.units + " " + (w.units === 1 ? "Einheit" : "Einheiten"),
+}));
+
+// Gestapelte Säulen: ein Segment je Person, 2 px Fuge dazwischen.
+function stackBars(stacked, people, goal) {
+  const totals = stacked.map(w => Object.values(w.byMember).reduce((a, b) => a + b, 0));
+  const max = Math.max(goal, ...totals, 1);
+  const line = goal ? `<div class="goal" style="bottom:${(goal / max) * 100}%"><em>Ziel ${goal}</em></div>` : "";
+  return `<div class="vbars">${line}${stacked.map((w, wi) => {
+    const parts = people.map((p, i) => ({ p, i, n: w.byMember[p.id] || 0 })).filter(x => x.n);
+    const names = parts.map(x => x.p.name + ": " + x.n).join(" · ");
+    return `<div class="vbar" data-tip="Woche ab ${esc(dm(w.week))} · ${totals[wi]} gesamt${names ? " · " + esc(names) : ""}">
+      <em>${totals[wi] || ""}</em>
+      <div class="vstack" style="height:${(totals[wi] / max) * 100}%">
+        ${parts.map(x => `<i style="height:${(x.n / totals[wi]) * 100}%;background:${seriesColor(x.i)}"></i>`).join("")}
+      </div>
+      <u>${w.week.slice(8)}.</u></div>`;
+  }).join("")}</div>`;
+}
+
+// Balken: Name links, Zahl rechts - Farbe trägt nie allein die Bedeutung.
+function rowBars(rows) {
+  const max = Math.max(...rows.map(r => r.value), 1);
+  return rows.map(r => `<div class="hbar" data-tip="${esc(r.tip || r.label + ": " + r.value)}">
+    <span class="nm">${esc(r.label)}</span>
+    <div class="tr"><i style="width:${Math.max(3, (r.value / max) * 100)}%${r.color ? ";background:" + r.color : ""}"></i></div>
+    <span class="vl">${esc(r.right)}</span></div>`).join("");
+}
+
+function viewStats() {
+  if (!D.members.length) return onboarding();
+  if (!R) {
+    if (!reportFailed) loadReport();
+    return `<div class="card"><h2>Zahlen</h2><div class="sub">${reportFailed ? "Konnte nicht geladen werden." : "Rechne …"}</div></div>`;
+  }
+
+  const mine = statsWho === "me" && me && R.members[me];
+  const d = mine || R.team;
+  const title = mine ? D.members.find(m => m.id === me)?.name : "Die Gruppe";
+  const people = R.team.perMember;
+
+  const toggle = `<div class="seg">
+    <button class="${statsWho === "me" ? "on" : ""}" onclick="statsWho='me';render()">Ich</button>
+    <button class="${statsWho === "team" ? "on" : ""}" onclick="statsWho='team';render()">Team</button></div>`;
+
+  const noMe = statsWho === "me" && !me
+    ? `<div class="card"><h2>Wer bist du?</h2><div class="sub">Oben auf der Startseite einmal auswählen, dann stehen hier deine Zahlen.</div></div>`
+    : "";
+
+  const tiles = `<div class="card"><h2>${esc(title)} · seit ${d.first ? dm(d.first) : "Beginn"}</h2>
+    <div class="tiles">
+      <div class="tile"><b>${nf(d.sessions)}</b><span>Einheiten</span></div>
+      <div class="tile"><b>${hours(d.hours)}</b><span>Stunden</span></div>
+      <div class="tile"><b>${nf(d.km)}</b><span>Kilometer</span></div>
+      <div class="tile"><b>${nf(d.climb)}</b><span>Höhenmeter</span></div>
+    </div>
+    <div class="hint">${d.withData < d.sessions
+      ? `${d.sessions - d.withData} Einträge ohne Messwerte – die zählen als Einheit, aber nicht in Stunden und Kilometern.`
+      : "Alle Einträge haben Messwerte."}${d.avgMinutes ? ` Im Schnitt ${d.avgMinutes} Minuten je Einheit.` : ""}${
+        d.avgHr ? ` Durchschnittspuls ${d.avgHr}.` : ""}</div></div>`;
+
+  const verlauf = `<div class="card"><h2>Einheiten je Woche</h2>
+    ${mine ? colBars(asWeeks(d.weeks), R.required) : stackBars(R.team.stacked, people, R.required * Math.max(1, people.length))}
+    ${mine ? "" : `<div class="legend">${people.slice(0, 8).map((p, i) =>
+      `<span><b style="background:${seriesColor(i)}"></b>${esc(p.name)}</span>`).join("")}</div>`}
+    <div class="hint">Die letzten ${d.weeks.length} Wochen. Graue Säulen haben das Ziel verfehlt.</div></div>`;
+
+  const sportarten = d.sports.length ? `<div class="card"><h2>Sportarten</h2>
+    ${rowBars(d.sports.map(sp => ({
+      label: sportIcon(sp.sport) + " " + sp.sport,
+      value: sp.count,
+      right: sp.count + "×" + (sp.secs > 60 ? " · " + hours(sp.secs / 3600) + " h" : ""),
+      tip: sp.sport + ": " + sp.count + " Einheiten"
+        + (sp.secs > 60 ? ", " + hours(sp.secs / 3600) + " Stunden" : "")
+        + (sp.km > 0.5 ? ", " + nf(Math.round(sp.km)) + " km" : ""),
+    })))}
+    ${d.moreSports ? `<div class="hint">und ${d.moreSports} weitere</div>` : ""}</div>` : "";
+
+  const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  const WDL = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+  const bestDay = d.weekdays.indexOf(Math.max(...d.weekdays));
+  const tage = d.sessions ? `<div class="card"><h2>Lieblingstage</h2>
+    ${colBars(d.weekdays.map((n, i) => ({
+      label: WD[i], value: n,
+      tip: WDL[i] + " · " + n + " " + (n === 1 ? "Einheit" : "Einheiten"),
+    })), 0)}
+    <div class="hint">Am häufigsten: ${WDL[bestDay]}.</div></div>` : "";
+
+  const leute = !mine && people.length ? `<div class="card"><h2>Wer wie viel</h2>
+    ${rowBars([...people].sort((a, b) => b.sessions - a.sessions).map(p => ({
+      label: p.name,
+      value: p.sessions,
+      color: seriesColor(people.findIndex(x => x.id === p.id)),
+      right: p.sessions + "×" + (p.hours ? " · " + hours(p.hours) + " h" : ""),
+      tip: p.name + ": " + p.sessions + " Einheiten" + (p.hours ? ", " + hours(p.hours) + " Stunden" : "")
+        + (p.km ? ", " + nf(Math.round(p.km)) + " km" : ""),
+    })))}
+    ${R.team.together ? `<div class="hint">${R.team.together} Einheiten habt ihr zusammen gemacht.</div>` : ""}</div>` : "";
+
+  const tabelle = `<div class="card"><h2>Als Tabelle</h2><table>
+    <tr><th>Sportart</th><th>Einheiten</th><th>Stunden</th><th>km</th></tr>
+    ${d.sports.map(sp => `<tr><td>${esc(sp.sport)}</td><td>${sp.count}</td>
+      <td>${sp.secs > 60 ? hours(sp.secs / 3600) : "–"}</td>
+      <td>${sp.km > 0.5 ? nf(Math.round(sp.km)) : "–"}</td></tr>`).join("")}
+  </table></div>`;
+
+  return toggle + noMe + (statsWho === "me" && !me ? "" : tiles + verlauf + sportarten + tage + leute + tabelle);
 }
 
 /* ---------- Feed ---------- */
@@ -743,6 +928,7 @@ async function save() {
     };
     await api("entry", "POST", body);
     if (body.sport) localStorage.lastSport = body.sport;
+    R = null;                                   // Zahlen neu rechnen lassen
     crew = [];
     if (!me) { me = body.member_id; localStorage.me = me; }
     pending = null;
@@ -967,7 +1153,7 @@ async function syncPushMember() {
 }
 
 /* ---------- Router ---------- */
-const views = { home: viewHome, feed: viewFeed, add: viewAdd, set: viewSet };
+const views = { home: viewHome, feed: viewFeed, add: viewAdd, stats: viewStats, set: viewSet };
 function render() {
   if (!D) return;
   const h = location.hash.slice(1);
@@ -983,6 +1169,31 @@ function render() {
     try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
   });
 }
+// Ein Hinweisfeld für alle Diagramme - antippen reicht, Zeigen auch.
+(() => {
+  const tip = () => document.getElementById("tip");
+  let hideTimer = null;
+  const show = (el, x, y) => {
+    const t = tip();
+    if (!t) return;
+    t.textContent = el.dataset.tip;
+    t.classList.add("on");
+    const w = t.offsetWidth, h = t.offsetHeight;
+    t.style.left = Math.max(8, Math.min(innerWidth - w - 8, x - w / 2)) + "px";
+    t.style.top = Math.max(8, y - h - 12) + "px";
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => t.classList.remove("on"), 2600);
+  };
+  const at = (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (!el) { tip()?.classList.remove("on"); return; }
+    const r = el.getBoundingClientRect();
+    show(el, r.left + r.width / 2, e.type === "pointerdown" ? r.top : r.top);
+  };
+  addEventListener("pointerdown", at, { passive: true });
+  addEventListener("pointerover", (e) => { if (e.pointerType === "mouse") at(e); }, { passive: true });
+})();
+
 addEventListener("hashchange", render);
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 // Beim Zurückkommen frisch laden - aber nicht, während jemand ein Formular

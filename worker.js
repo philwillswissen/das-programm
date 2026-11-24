@@ -2,6 +2,7 @@ import { sendPush, b64u } from "./push.js";
 import { localParts, slotFor, favourites, buildMessage, geocode, forecast, behindHint } from "./nudge.js";
 import { settle } from "./stats.js";
 import * as icu from "./icu.js";
+import { report } from "./report.js";
 import indexHtml from "./public/index.html";
 import swJs from "./public/sw.js";
 import manifestJson from "./public/manifest.json";
@@ -521,6 +522,21 @@ export default {
           db.prepare("DELETE FROM plan_joins WHERE plan_id=?").bind(m[1]),
         ]);
         return json({ ok: true });
+      }
+
+      // Zahlen für die Auswertungsseite - eigener Aufruf, damit der
+      // Startzustand schlank bleibt.
+      if (path === "/api/report" && method === "GET") {
+        const all = (sql) => db.prepare(sql).all().then((r) => r.results);
+        const settings = { ...DEFAULTS, start: weekOf(today()) };
+        for (const row of await all("SELECT k,v FROM settings")) {
+          try { settings[row.k] = JSON.parse(row.v); } catch {}
+        }
+        const [members, entries] = await Promise.all([
+          all("SELECT id,name FROM members ORDER BY id"),
+          all("SELECT member_id,date,kind,units,sport,meta,group_id FROM entries"),
+        ]);
+        return json(report({ members, entries, settings, today: today() }));
       }
 
       /* ---------- Automatischer Import ---------- */

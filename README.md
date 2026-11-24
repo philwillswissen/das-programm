@@ -40,6 +40,11 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   Strava, Garmin, Wahoo, Polar und Suunto – damit braucht es bei keinem dieser Dienste
   ein Entwicklerkonto. Einheiten unter einer einstellbaren Mindestdauer werden
   übergangen, Doppelte verhindert ein eindeutiger Index.
+- **Zahlen** – Eigene Seite mit Auswertungen, umschaltbar zwischen *Ich* und *Team*:
+  Einheiten, Stunden, Kilometer und Höhenmeter als Kennzahlen, Einheiten je Woche
+  mit Ziellinie (im Team nach Personen gestapelt), Sportarten, Lieblingstage, wer
+  wie viel – dazu dieselben Daten als Tabelle. Diagramme in reinem HTML, ohne
+  Bibliothek; Zahlen stehen an jedem Balken, Farbe trägt nie allein die Bedeutung.
 - **Gemeinsam** – Beim Eintragen lässt sich ankreuzen, wer noch dabei war; einer
   dokumentiert, alle bekommen die Einheit. Im Feed stehen diese als ein Beitrag.
   Aus dem Feed heraus kann man eine gemeinsame Einheit vorschlagen, die anderen

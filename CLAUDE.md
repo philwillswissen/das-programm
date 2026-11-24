@@ -57,6 +57,7 @@ Sicherungen landen in `backups/` und gehören nicht ins Repo.
 | `stats.js` | Abrechnung einer Woche: Strafen, Serie, Guthaben |
 | `nudge.js` | Motivationsnachrichten: Zeitfenster, Textbausteine, Wetter |
 | `icu.js` | Import über intervals.icu: Zugang, Sportarten, Einheiten |
+| `report.js` | Zahlen für die Auswertungsseite, liest `meta` zurück |
 | `push.js` | Web Push nach RFC 8291 und 8292, ohne Abhängigkeiten |
 | `public/index.html` | die komplette Oberfläche, eine Datei, kein Framework |
 | `scripts/guard.cjs` | entscheidet, wogegen schreibende Tests laufen dürfen |
@@ -73,6 +74,14 @@ Das ist bewusst – die Oberfläche rechnet offline, der Worker beim Import.
 `test/icu.cjs` füttert beide Seiten mit denselben Werten und vergleicht das
 Ergebnis. Wer eine Seite ändert, ändert die andere mit, sonst schlägt der
 Test fehl.
+
+## Diagramme
+
+Die Reihenfarben (`--s1` bis `--s8` in `public/index.html`) sind die geprüfte
+Standardpalette der dataviz-Vorgaben, gegen beide Kartenflächen validiert.
+Reihenfolge nicht ändern und nicht durchwechseln – ab neun Reihen zusammenfassen.
+Jeder Balken trägt Name und Zahl, damit Farbe nie allein die Bedeutung trägt,
+und es gibt zu jedem Diagramm eine Tabellenansicht.
 
 ## Secrets
 
