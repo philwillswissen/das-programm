@@ -76,26 +76,41 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   ok(await page.locator('button:has-text("Filtern")').isVisible(), "und die Leiste ist wieder eingeklappt");
 
   console.log("\n== Rückfrage beim Löschen ==");
-  let gefragt = null;
-  page.on("dialog", (d) => { gefragt = d.message(); d.dismiss(); });
+  // Kein confirm() mehr: ein eigenes Fenster, das auch in der installierten
+  // App sicher erscheint. Ein nativer Dialog waere hier ein Fehler.
+  let nativ = 0;
+  page.on("dialog", (d) => { nativ++; d.dismiss(); });
   await page.locator('.post:has-text("Bouldern") button[title="Löschen"]').click();
-  await page.waitForTimeout(400);
-  ok(!!gefragt, "vor dem Löschen wird gefragt");
-  ok(/Bouldern/.test(gefragt), "die Frage nennt die Einheit: „" + (gefragt || "").split("\n")[0] + "“");
+  await page.waitForSelector("#ask.on");
+  let gefragt = (await page.textContent("#ask")).replace(/\s+/g, " ");
+  ok(true, "vor dem Löschen wird gefragt");
+  ok(nativ === 0, "und zwar im eigenen Fenster, nicht über den Browser-Dialog");
+  ok(/Bouldern/.test(gefragt), "die Frage nennt die Einheit: „" + gefragt.trim().slice(0, 70) + "“");
   ok(/Anna/.test(gefragt), "und wessen sie ist");
   ok(/nicht rückgängig/i.test(gefragt), "und dass es endgültig ist");
+  ok(await page.isVisible("#backdrop.on"), "der Hintergrund ist abgedunkelt");
+
+  await page.click('#ask button:has-text("Abbrechen")');
+  await page.waitForSelector("#ask.on", { state: "detached" }).catch(() => {});
+  await page.waitForFunction(() => !document.getElementById("ask").classList.contains("on"));
   ok((await api("state")).data.entries.some((e) => e.sport === "Bouldern"), "Abbrechen löscht nichts");
+  ok(!(await page.isVisible("#backdrop.on")), "und der Hintergrund ist wieder frei");
 
-  gefragt = null;
   await page.locator('.post:has-text("Schwimmen") button[title="Löschen"]').click();
-  await page.waitForTimeout(400);
-  ok(/gemeinsame Einheit/i.test(gefragt || ""), "bei einer gemeinsamen Einheit steht dabei, dass es alle betrifft");
+  await page.waitForSelector("#ask.on");
+  gefragt = (await page.textContent("#ask")).replace(/\s+/g, " ");
+  ok(/gemeinsame Einheit/i.test(gefragt), "bei einer gemeinsamen Einheit steht dabei, dass es alle betrifft");
+  // Tipp auf den Hintergrund zaehlt als Abbrechen.
+  await page.click("#backdrop", { position: { x: 20, y: 60 } });
+  await page.waitForFunction(() => !document.getElementById("ask").classList.contains("on"));
+  ok((await api("state")).data.entries.some((e) => e.sport === "Schwimmen"), "ein Tipp daneben löscht auch nichts");
 
-  page.removeAllListeners("dialog");
-  page.on("dialog", (d) => d.accept());
   await page.locator('.post:has-text("Bouldern") button[title="Löschen"]').click();
+  await page.waitForSelector("#ask.on");
+  await page.click('#ask button:has-text("Löschen")');
   await page.waitForTimeout(900);
   ok(!(await api("state")).data.entries.some((e) => e.sport === "Bouldern"), "nach dem Bestätigen ist er weg");
+  ok(nativ === 0, "an keiner Stelle ein nativer Dialog");
 
   console.log("\n== Keine leeren Tagesblöcke ==");
   const leereTage = await page.evaluate(() =>

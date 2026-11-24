@@ -72,6 +72,9 @@ nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);b
 nav a b{display:block;font-size:19px;font-weight:400;line-height:1.3}
 nav a.on{color:var(--acc)}
 body.locked nav,body.locked #install,body.locked #backdrop{display:none}
+#ask .btns{display:flex;gap:10px;margin-top:16px}
+#ask .btns button{flex:1;margin:0}
+#ask .warn{background:var(--bad);color:#fff}
 .item{padding:10px 0;border-top:1px solid var(--line)}
 .item:first-of-type{border-top:0}
 .chip{display:inline-block;background:var(--chip);color:var(--mut);border-radius:999px;padding:2px 9px;font-size:12px;margin:3px 4px 0 0}
@@ -177,9 +180,10 @@ button.i{width:22px;height:22px;padding:0;border-radius:50%;background:var(--chi
 </nav>
 <div class="toast" id="toast"></div>
 <div id="tip"></div>
-<div id="backdrop" onclick="laterInstall(false);hideInfo()"></div>
+<div id="backdrop" onclick="laterInstall(false);hideInfo();askClose(false)"></div>
 <div id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle"></div>
 <div id="info" class="sheet" role="dialog" aria-modal="true"></div>
+<div id="ask" class="sheet" role="alertdialog" aria-modal="true"></div>
 <script>
 /* ---------- Basis ---------- */
 const $ = s => document.querySelector(s);
@@ -279,6 +283,30 @@ const INFOS = () => { const S = (D && D.settings) || {}; return {
     <p>Der Text richtet sich nach deiner Serie, deinen Sportarten und – wenn du den
        Standort freigibst – nach dem Wetter.</p>`],
 }; };
+
+// Nachfrage in einem eigenen Fenster. Gibt ein Versprechen auf ja/nein zurueck.
+// Nicht confirm(): das zeigt Chrome in einer installierten PWA nicht zuverlaessig
+// an - dann wuerde kommentarlos geloescht.
+let askResolve = null;
+function ask(title, text, okText = "Löschen") {
+  const box = document.getElementById("ask");
+  box.innerHTML = `<h3>${title}</h3>${text}
+    <div class="btns">
+      <button class="ghost" onclick="askClose(false)">Abbrechen</button>
+      <button class="warn" onclick="askClose(true)">${okText}</button>
+    </div>`;
+  box.classList.add("on");
+  document.getElementById("backdrop").classList.add("on");
+  return new Promise(res => { askResolve = res; });
+}
+function askClose(answer) {
+  const box = document.getElementById("ask");
+  if (!box.classList.contains("on")) return;
+  box.classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on");
+  const r = askResolve; askResolve = null;
+  if (r) r(!!answer);
+}
 
 function showInfo(key) {
   const [title, body] = INFOS()[key] || [];
@@ -849,7 +877,7 @@ const joinPlan = guard(async (id, leave) => {
   await load();
 });
 const delPlan = guard(async id => {
-  if (!confirm("Vorschlag zurücknehmen?")) return;
+  if (!await ask("Vorschlag zurücknehmen?", "<p>Der Vorschlag verschwindet für alle aus dem Feed.</p>", "Zurücknehmen")) return;
   await api("plan/" + id, "DELETE");
   await load();
 });
@@ -1296,7 +1324,7 @@ const linkIcu = guard(async () => {
   await load();
 });
 const unlinkIcu = guard(async () => {
-  if (!confirm("Verbindung lösen? Bereits übernommene Einheiten bleiben stehen.")) return;
+  if (!await ask("Verbindung lösen?", "<p>Es werden keine Einheiten mehr automatisch übernommen. Die bereits übernommenen bleiben stehen.</p>", "Lösen")) return;
   await api("link/remove", "POST", { member_id: me });
   await load();
 });
@@ -1380,14 +1408,24 @@ const previewNudge = guard(async () => {
 const addMember = guard(async () => { const v = $("#nm").value.trim(); if (!v) return; await api("member", "POST", { name: v, joined: todayISO() }); await load(); });
 const renameMember = guard(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
 const rejoinMember = guard(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
-const delMember = guard(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
+const delMember = guard(async id => {
+  const m = D.members.find(x => x.id === id);
+  if (!await ask("Teilnehmer löschen?",
+    `<p><b>${esc(m?.name || "Die Person")}</b> verschwindet mitsamt allen Einträgen aus der Abrechnung.
+       Bereits gebuchte Ausgaben bleiben der Gruppe erhalten, nur ohne Person.</p>
+     <p>Das lässt sich nicht rückgängig machen.</p>`)) return;
+  await api("member/" + id, "DELETE"); await load();
+});
 const delEntry = guard(async id => {
   const e = D.entries.find(x => x.id === id);
   const wer = e && D.members.find(m => m.id === e.member_id)?.name;
   const was = e ? (e.kind === "sick" ? "die Krankmeldung" : e.sport ? `die Einheit „${e.sport}“` : "die Einheit") : "den Eintrag";
   const wann = e ? " vom " + dm(e.date) : "";
-  const gruppe = e?.group_id ? "\n\nDas war eine gemeinsame Einheit – sie verschwindet bei allen, die dabei waren." : "";
-  if (!confirm(`${was}${wann}${wer ? " von " + wer : ""} wirklich löschen?${gruppe}\n\nDas lässt sich nicht rückgängig machen.`)) return;
+  const gruppe = e?.group_id ? " Das war eine <b>gemeinsame Einheit</b> – sie verschwindet bei allen, die dabei waren." : "";
+  const gefragt = await ask("Wirklich löschen?",
+    `<p>${was.charAt(0).toUpperCase() + was.slice(1)}${wann}${wer ? " von <b>" + esc(wer) + "</b>" : ""} wird aus dem Feed und aus der Abrechnung entfernt.${gruppe}</p>
+     <p>Das lässt sich nicht rückgängig machen.</p>`);
+  if (!gefragt) return;
   await api("entry/" + id, "DELETE");
   if (editId === id) { editId = null; location.hash = "#feed"; }
   R = null;
@@ -1419,7 +1457,12 @@ const uploadPhoto = guard(async file => {
   await load();
 });
 
-const delExpense = guard(async id => { await api("expense/" + id, "DELETE"); await load(); });
+const delExpense = guard(async id => {
+  const x = D.expenses.find(v => v.id === id);
+  if (!await ask("Ausgabe löschen?",
+    `<p>${x ? `<b>${esc(x.title)}</b> über ${money(x.amount, D.settings.currency)}` : "Die Ausgabe"} wird aus der Kasse genommen.</p>`)) return;
+  await api("expense/" + id, "DELETE"); await load();
+});
 const addExpense = guard(async () => {
   const a = +$("#ea").value; if (!a) return toast("Betrag fehlt.");
   await api("expense", "POST", {

@@ -302,8 +302,10 @@ const api = (p, method = "GET", body) =>
   await page.click('button:has-text("Hinzufügen")');
   await page.waitForSelector('input[value="Dani"]');
   ok((await waitFor(async () => (await api("state")).members.length === 4)), "Teilnehmer jederzeit erweiterbar");
-  page.on("dialog", d => d.accept());
   await page.click('.row:has(input[value="Dani"]) button.x');
+  await page.waitForSelector("#ask.on");
+  ok(/Dani/.test(await page.textContent("#ask")), "vor dem Löschen wird nach der Person gefragt");
+  await page.click('#ask button:has-text("Löschen")');
   await page.waitForSelector('input[value="Dani"]', { state: "detached" });
   ok((await waitFor(async () => (await api("state")).members.length === 3)), "Teilnehmer löschbar");
   ok(!(await api("state")).entries.some(e => e.member_id === 999), "keine verwaisten Einträge");

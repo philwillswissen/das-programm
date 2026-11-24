@@ -62,8 +62,10 @@ const entryById = async (id) => (await api("state")).data.entries.find((e) => e.
   await ctx.addInitScript((v) => { localStorage.pin = v; localStorage.installLater = String(Date.now()); }, PIN);
   const page = await ctx.newPage();
   const errors = [];
+  let nativeDialogs = 0;
   page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("dialog", (d) => d.accept());
+  // Die Nachfrage ist ein Fenster in der App; ein nativer Dialog waere ein Fehler.
+  page.on("dialog", (d) => { nativeDialogs++; d.dismiss(); });
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.click('button:has-text("Anna")');
   await page.waitForTimeout(400);
@@ -98,8 +100,12 @@ const entryById = async (id) => (await api("state")).data.entries.find((e) => e.
   await page.locator('.post:has-text("Pilates") button[title="Ändern"]').click();
   await page.waitForSelector('h2:has-text("Eintrag ändern")');
   await page.click('button:has-text("Eintrag löschen")');
+  await page.waitForSelector("#ask.on");
+  ok(/Pilates/.test(await page.textContent("#ask")), "auch hier wird vorher gefragt");
+  await page.click('#ask button:has-text("Löschen")');
   await page.waitForTimeout(1200);
   ok(!(await api("state")).data.entries.some((x) => x.sport === "Pilates"), "Löschen aus der Bearbeitung heraus geht auch");
+  ok(nativeDialogs === 0, "nirgends ein nativer Browser-Dialog");
 
   await page.click('nav a[href="#add"]');
   await page.waitForSelector("#sport");
