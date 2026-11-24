@@ -221,10 +221,17 @@ let dev;
     console.log("  \u2013 Stichprobe gegen Open-Meteo \u00fcbersprungen: " + String(e.message || e));
   }
 
+  console.log("\n== Standardort ==");
+  const st0 = (await api("state")).data.settings;
+  ok(st0.place === "N\u00fcrnberg", "ohne eigenen Standort rechnet die App mit N\u00fcrnberg (" + st0.place + ")");
+  await api("settings", "POST", { place: "" });
+  ok((await api("state")).data.settings.place === "N\u00fcrnberg",
+     "ein leer gespeicherter Ort hebelt den Standardort nicht aus");
+
   await api("settings", "POST", { place: "Hier-gibt-es-keinen-Ort-xyz" });
   const noGeo = await api("nudges", "POST", { now: atBerlin(dayB, slotB.hour), force: "start" });
   ok(noGeo.data.nudges.length > 0, "nicht erreichbares Wetter legt die Nachricht nicht lahm");
-  await api("settings", "POST", { place: "" });
+  await api("settings", "POST", { place: "N\u00fcrnberg" });
 
   await api("settings", "POST", { nudges: false });
   res = await api("nudges", "POST", { now: atBerlin(dayA, slotA.hour) });

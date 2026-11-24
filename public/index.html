@@ -1054,10 +1054,11 @@ function viewSet() {
     ${s.nudges ? `
       <div class="flex" style="margin-top:12px"><div><b>Wetterhinweis</b>
         <div class="sub">${me && D.members.find(m => m.id === me)?.hasGeo
-          ? "Standort hinterlegt" : "kein Standort – noch ohne Wetter"}</div></div>
+          ? "dein Standort" : "angenommen: " + esc(s.place)}</div></div>
         <button class="s" onclick="useLocation()">Standort verwenden</button></div>
-      <div class="hint">Einmal freigeben genügt, grob reicht völlig. Regnet es, schlägt die App etwas
-        drinnen vor – und zwar das, was du ohnehin machst.</div>
+      <div class="hint">Ohne Freigabe rechnet die App mit ${esc(s.place)}. Gibst du den Standort frei,
+        stimmt der Hinweis auch unterwegs – einmal reicht, grob genügt völlig. Regnet es, schlägt sie
+        etwas drinnen vor, und zwar das, was du ohnehin machst.</div>
       <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
       <div id="nudgePreview" class="sub"></div>` : ""}
   </div>

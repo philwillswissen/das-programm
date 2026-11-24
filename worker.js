@@ -76,7 +76,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS links(member_id INTEGER PRIMARY KEY, athlete_id TEXT NOT NULL, api_key TEXT NOT NULL, name TEXT, last_check TEXT, connected TEXT)",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "Nürnberg", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "" };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
 // Kürzere Einheiten werden beim automatischen Import übergangen.
@@ -125,6 +125,8 @@ async function loadSettings(db) {
     if (!(row.k in DEFAULTS)) continue;
     try { out[row.k] = JSON.parse(row.v); } catch {}
   }
+  // Ein leer gespeicherter Ort soll nicht den Standardort aushebeln.
+  if (!out.place) out.place = DEFAULTS.place;
   return out;
 }
 

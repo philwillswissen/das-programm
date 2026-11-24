@@ -25,7 +25,8 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 - **Anstupser** – Ein stündlicher Cron-Trigger prüft, wer zurückliegt. Mitte der Woche
   (mal Mittwoch, mal Donnerstag), zum Wochenende (Freitag oder Samstag) und am Sonntag
   als letzte Chance. Der Text richtet sich nach Serie, Lieblingssportarten, Gruppenlage
-  und – wenn der Standort freigegeben ist – nach dem Wetter von Open-Meteo. Höchstens einmal
+  und nach dem Wetter von Open-Meteo. Ohne freigegebenen Standort rechnet die App
+  mit dem in den Einstellungen hinterlegten Ort (Standard: Nürnberg). Höchstens einmal
   je Art und Woche.
 - **Guthaben** (abschaltbar, standardmäßig aus) – Die dritte Einheit einer Woche gibt
   1 Guthaben, die vierte 0,5, die fünfte 0,3, danach nichts mehr; höchstens 9 insgesamt.
