@@ -394,7 +394,26 @@ async function load() {
     if (me && !D.members.some(m => m.id === me)) { me = 0; localStorage.removeItem("me"); }
     render();
     if (!load.offered) { load.offered = true; setTimeout(() => showInstall(), 1000); refreshLocation(); }
+    catchUp();
   } catch (e) { $("#app").innerHTML = '<div class="card"><h2>Fehler</h2>' + esc(e.message) + '</div>'; }
+}
+
+// Beim Oeffnen der App im Hintergrund bei intervals.icu nachsehen. Wer gerade
+// hochgeladen hat, sieht die Einheit damit sofort statt erst beim naechsten
+// Lauf des Servers. Der Worker bremst zu haeufige Anfragen selbst ab.
+let catchUpBusy = false;
+async function catchUp() {
+  if (catchUpBusy || !D || !me) return;
+  if (!(D.links || []).some(l => l.member_id === me)) return;
+  catchUpBusy = true;
+  try {
+    const r = await (await api("link/sync", "POST", { member_id: me, force: false })).json();
+    if (r.imported && r.imported.length) {
+      D = await get("state");
+      render();
+      toast(r.imported.length === 1 ? "Eine Einheit übernommen." : r.imported.length + " Einheiten übernommen.");
+    }
+  } catch {} finally { catchUpBusy = false; }
 }
 
 /* ---------- Auswertung ---------- */

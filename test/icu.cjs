@@ -101,6 +101,37 @@ const today = () => new Date().toISOString().slice(0, 10);
   ok(true, "Testdienst läuft (der Worker spricht in echt mit intervals.icu)");
   server.close();
 
+  console.log("\n== Wie schnell eine Einheit ankommt ==");
+  const fs = require("node:fs");
+  const toml = fs.readFileSync(__dirname + "/../wrangler.toml", "utf8");
+  const cron = (toml.match(/crons\s*=\s*\[\s*"([^"]+)"/) || [])[1];
+  ok(cron === "*/2 * * * *", "der Server sieht alle zwei Minuten nach (" + cron + ")");
+
+  ok((await api("link/sync", "POST", { member_id: anna, force: false })).status === 200,
+     "die App darf beim Öffnen selbst nachfragen");
+  ok((await api("link/sync", "POST", { member_id: anna })).status === 200,
+     "und der Knopf in den Einstellungen auch");
+
+  {
+    // Beim Öffnen fragt die App nur nach, wenn für die Person überhaupt eine
+    // Verbindung besteht - sonst waere es eine Anfrage ins Leere.
+    const { chromium, devices } = require("/opt/node-tools/node_modules/playwright");
+    const browser = await chromium.launch({ args: ["--no-sandbox"] });
+    const ctx = await browser.newContext({ ...devices["iPhone 13"], locale: "de-DE" });
+    await ctx.addInitScript((v) => { localStorage.pin = v; localStorage.installLater = String(Date.now()); }, PIN);
+    const page = await ctx.newPage();
+    let syncs = 0;
+    page.on("request", (r) => { if (r.url().includes("/api/link/sync")) syncs++; });
+    await page.goto(BASE, { waitUntil: "networkidle" });
+    await page.click('button:has-text("Anna")');
+    await page.waitForTimeout(1500);
+    ok(syncs === 0, "ohne Verbindung fragt die App gar nicht erst nach (" + syncs + ")");
+    ok(typeof (await page.evaluate(() => typeof catchUp)) === "string"
+       && (await page.evaluate(() => typeof catchUp)) === "function",
+       "die Nachfrage beim Öffnen ist eingebaut");
+    await browser.close();
+  }
+
   console.log("\n== Dauer-Untergrenze ==");
   ok((await api("state")).data.settings.importMin === undefined,
      "die Untergrenze ist fest verdrahtet und keine Einstellung mehr");

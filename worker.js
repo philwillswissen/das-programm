@@ -230,7 +230,7 @@ export default {
     ctx.waitUntil(
       migrate(env.DB)
         .then(async () => {
-          const found = await syncAll(env, env.DB, null);
+          const found = await syncAll(env, env.DB, null, null, { force: true });
           if (found.length) console.log("Importiert", JSON.stringify(found));
           const sent = await runNudges(env, env.DB, when);
           if (sent.length) console.log("Nudges", JSON.stringify(sent.map((x) => x.member + ": " + x.body)));
@@ -644,10 +644,12 @@ export default {
         return json({ ok: true });
       }
 
-      // Jetzt nachsehen - aus den Einstellungen heraus oder stuendlich vom Cron.
+      // Jetzt nachsehen: der Knopf in den Einstellungen fragt sofort, die App
+      // beim Oeffnen nur, wenn das letzte Mal lange genug her ist.
       if (path === "/api/link/sync" && method === "POST") {
         const only = body.member_id ? Number(body.member_id) : null;
-        return json({ ok: true, imported: await syncAll(env, db, ctx, only) });
+        const force = body.force !== false;
+        return json({ ok: true, imported: await syncAll(env, db, ctx, only, { force }) });
       }
 
       // Guthaben-Meldung ansehen oder ausloesen
@@ -721,12 +723,20 @@ async function syncMember(env, db, memberId, ctx) {
   return added;
 }
 
-async function syncAll(env, db, ctx, only = null) {
+// Mindestabstand zwischen zwei Anfragen an intervals.icu je Person. Der Cron
+// laeuft alle zwei Minuten, die App fragt beim Oeffnen zusaetzlich nach - ohne
+// diese Bremse wuerden viele geoeffnete Apps den Dienst unnoetig belasten.
+const SYNC_MIN_GAP_MS = 90e3;
+
+async function syncAll(env, db, ctx, only = null, { force = false } = {}) {
   const rows = only
-    ? [{ member_id: only }]
-    : (await db.prepare("SELECT member_id FROM links").all()).results;
+    ? (await db.prepare("SELECT member_id,last_check FROM links WHERE member_id=?").bind(only).all()).results
+    : (await db.prepare("SELECT member_id,last_check FROM links").all()).results;
   const out = [];
-  for (const r of rows) out.push(...(await syncMember(env, db, r.member_id, ctx)));
+  for (const r of rows) {
+    if (!force && r.last_check && Date.now() - Date.parse(r.last_check) < SYNC_MIN_GAP_MS) continue;
+    out.push(...(await syncMember(env, db, r.member_id, ctx)));
+  }
   return out;
 }
 

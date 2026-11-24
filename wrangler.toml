@@ -21,7 +21,10 @@ database_name = "sportkasse"
 database_id = "f846d535-aff2-4ebd-b062-7b4e2f91e952"
 
 [triggers]
-crons = ["0 * * * *"]   # stuendlich; wer gerade dran ist, entscheidet der Worker
+crons = ["*/2 * * * *"]  # alle zwei Minuten: Einheiten sollen schnell da sein.
+                        # Anstupser und Guthabenmeldung haben eigene Riegel
+                        # (Tabelle `nudges`, einmal je Woche) - die laufen
+                        # dadurch nicht oefter.
 
 [observability]
 enabled = true

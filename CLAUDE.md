@@ -39,6 +39,26 @@ Jede schreibende Suite ruft oben `requireScratchTarget(BASE)` aus
 `npm run test:live` liest ausschließlich: Auslieferung, Caching-Header,
 PIN-Schutz, Zustand der Einstellungen.
 
+### Zwei Browser-Engines
+
+Die meisten Oberflächentests laufen in Chromium. `test/iphone.cjs` läuft in
+**echtem WebKit** – derselben Engine wie Safari auf dem iPhone. Das ist kein
+Luxus: `confirm()` wurde einmal eingebaut und zeigte sich in der installierten
+App nicht, der Eintrag verschwand kommentarlos. Chromium im iPhone-Kostüm
+hätte das nie gezeigt.
+
+Fehlt WebKit im Container, überspringt sich die Suite selbst. Nachinstallieren:
+
+```bash
+node /opt/node-tools/node_modules/playwright/cli.js install-deps webkit
+node /opt/node-tools/node_modules/playwright/cli.js install webkit
+```
+
+**Keine nativen Dialoge.** `confirm()`, `alert()` und `prompt()` gehören nicht
+in diese App – in einer installierten PWA zeigt weder Chrome noch Safari sie
+zuverlässig an. Nachfragen laufen über `ask()` (Fenster `#ask`). Drei Suiten
+zählen mit, ob doch ein nativer Dialog auftaucht, und schlagen dann fehl.
+
 ## Reihenfolge bei neuen Funktionen
 
 1. `npm test` lokal, bis alles grün ist
@@ -61,6 +81,7 @@ Sicherungen landen in `backups/` und gehören nicht ins Repo.
 | `push.js` | Web Push nach RFC 8291 und 8292, ohne Abhängigkeiten |
 | `public/index.html` | die komplette Oberfläche, eine Datei, kein Framework |
 | `scripts/guard.cjs` | entscheidet, wogegen schreibende Tests laufen dürfen |
+| `test/iphone.cjs` | dieselbe App in echtem WebKit – was hier fällt, fällt auf dem iPhone |
 
 Die Abrechnung läuft **nur** im Worker (`stats.js`). Die Oberfläche zeigt an,
 was `/api/state` liefert – sie rechnet nicht selbst, damit Anzeige und

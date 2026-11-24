@@ -23,6 +23,7 @@ const suites = [
   ["Feed filtern", "test/filter.cjs"],
   ["Kasse", "test/kasse.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
+  ["Auf dem iPhone (WebKit)", "test/iphone.cjs"],
 ];
 
 // --use-env-proxy immer: lokal unnoetig, aber harmlos; fuer Open-Meteo und
