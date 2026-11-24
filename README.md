@@ -20,7 +20,17 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
   wählst du aus rund 90 Vorschlägen oder tippst sie frei ein; aus der Datei wird sie
   automatisch erkannt.
 - **Push** – Alle anderen Geräte bekommen eine Benachrichtigung, sobald jemand etwas
-  einträgt. Pro Gerät an- und abschaltbar, mit Testbenachrichtigung.
+  einträgt. Pro Gerät an- und abschaltbar, mit Testbenachrichtigung. Wer selbst noch
+  hinterherhinkt, bekommt ab Wochenmitte einen kurzen Zusatz angehängt.
+- **Anstupser** – Ein stündlicher Cron-Trigger prüft, wer zurückliegt. Mitte der Woche
+  (mal Mittwoch, mal Donnerstag), zum Wochenende (Freitag oder Samstag) und am Sonntag
+  als letzte Chance. Der Text richtet sich nach Serie, Lieblingssportarten, Gruppenlage
+  und – wenn ein Ort hinterlegt ist – nach dem Wetter von Open-Meteo. Höchstens einmal
+  je Art und Woche.
+- **Gemeinsam** – Beim Eintragen lässt sich ankreuzen, wer noch dabei war; einer
+  dokumentiert, alle bekommen die Einheit. Im Feed stehen diese als ein Beitrag.
+  Aus dem Feed heraus kann man eine gemeinsame Einheit vorschlagen, die anderen
+  bekommen die Frage als Benachrichtigung und sagen per Knopf zu.
 - **Einstellungen** – Einheiten pro Woche, Strafbetrag, Währung, Startdatum, wie viele
   Einheiten eine Krankmeldung ersetzt, Teilnehmer (samt „dabei seit") und Ausgaben
   aus der Kasse. Alles frei konfigurierbar.
@@ -35,6 +45,7 @@ gemeinsame Kasse. Von dem Geld gibt es dann Grillen, Ausflüge oder was sonst an
 | Datei | Inhalt |
 |---|---|
 | `worker.js` | API, D1-Schema, Auslieferung der Oberfläche, Push-Versand |
+| `nudge.js` | Motivationsnachrichten: Zeitfenster, Textbausteine, Wetter |
 | `push.js` | Web Push nach RFC 8291 (aes128gcm) und RFC 8292 (VAPID), ohne Abhängigkeiten |
 | `public/index.html` | die komplette Oberfläche (eine Datei, kein Framework) |
 | `public/sw.js` | Service Worker: Offline-Cache und Benachrichtigungen |
@@ -51,7 +62,7 @@ cp .dev.vars.example .dev.vars   # eigene VAPID-Keys eintragen, siehe unten
 npx wrangler dev
 ```
 
-Tests gegen den laufenden `wrangler dev` (150 Prüfungen):
+Tests gegen den laufenden `wrangler dev` (225 Prüfungen):
 
 ```bash
 npm test

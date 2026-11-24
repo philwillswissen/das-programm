@@ -82,6 +82,11 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .post .who{display:flex;align-items:center;gap:9px}
 .post .av{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
 .post .act{font-size:16px;margin-top:9px}
+.plan{border:1px dashed var(--acc);background:var(--card)}
+.plan .when{font-weight:700}
+.who-pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.who-pick button{flex:0 0 auto;width:auto;padding:7px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;margin:0}
+.who-pick button.on{background:var(--acc);color:#fff}
 nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:10px;font-weight:600}
 #backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:29}
 #backdrop.on{opacity:1;pointer-events:auto}
@@ -363,28 +368,45 @@ function pushNudge() {
 function viewFeed() {
   if (!D.members.length) return onboarding();
   const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
-  if (!D.entries.length)
-    return `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
+  if (!D.entries.length && !(D.plans || []).length)
+    return planCards() + `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
       <button onclick="location.hash='#add'">Einheit eintragen</button></div>`;
 
+  // Eintraege einer gemeinsamen Einheit zu einem Beitrag zusammenfassen
+  const merged = [];
+  const seen = new Map();
+  for (const e of D.entries) {                 // absteigend nach id: die eintragende Person kommt zuletzt
+    const known = e.group_id && seen.get(e.group_id);
+    if (known) {
+      known.crew.unshift(e.member_id);
+      if (e.hasPhoto) { known.hasPhoto = 1; known.photoId = e.id; }  // Foto haengt am Eintrag des Eintragenden
+      continue;
+    }
+    const post = { ...e, crew: [e.member_id], photoId: e.id };
+    if (e.group_id) seen.set(e.group_id, post);
+    merged.push(post);
+  }
+
   const days = [];
-  for (const e of D.entries) {
+  for (const e of merged) {
     if (!days.length || days[days.length - 1].date !== e.date) days.push({ date: e.date, items: [] });
     days[days.length - 1].items.push(e);
   }
-  return days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
-    const n = nameOf(e.member_id);
+  return planCards() + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
+    const names = e.crew.map(nameOf);
+    const n = names.length > 1 ? names.slice(0, -1).join(", ") + " & " + names[names.length - 1] : names[0];
     const meta = e.meta ? Object.entries(JSON.parse(e.meta)) : [];
     return `<div class="post">
-      <div class="who"><div class="av">${esc(n.slice(0, 1).toUpperCase())}</div>
-        <div style="flex:1"><b>${esc(n)}</b>${e.member_id === me ? ' <span class="chip">du</span>' : ""}</div>
+      <div class="who"><div class="av">${names.length > 1 ? names.length : esc(names[0].slice(0, 1).toUpperCase())}</div>
+        <div style="flex:1"><b>${esc(n)}</b>${e.crew.includes(me) ? ' <span class="chip">du</span>' : ""}
+          ${names.length > 1 ? '<div class="sub">zusammen unterwegs</div>' : ""}</div>
         <button class="x" onclick="delEntry(${e.id})">✕</button></div>
       <div class="act">${e.kind === "sick"
         ? "🤒 Krankmeldung (" + (e.units || 1) + " " + ((e.units || 1) === 1 ? "Einheit" : "Einheiten") + ")"
         : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
       ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
       ${meta.length ? `<div style="margin-top:4px">${meta.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("")}</div>` : ""}
-      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.id}" alt="">` : ""}
+      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">` : ""}
     </div>`;
   }).join("")).join("");
 }
@@ -403,6 +425,64 @@ async function setupMembers() {
   load();
 }
 function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); }
+
+/* ---------- Gemeinsame Einheit vorschlagen ---------- */
+let planOpen = false;
+function planCards() {
+  const plans = (D.plans || []).filter(p => p.date >= todayISO());
+  const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
+  const form = planOpen ? `<div class="card plan">
+    <h2>Gemeinsame Einheit vorschlagen</h2>
+    <label>Was?</label>
+    <input id="pSport" list="sportList" autocomplete="off" placeholder="z. B. Bouldern" value="${esc(localStorage.lastSport || "")}">
+    <datalist id="sportList">${SPORTS.map(x => `<option value="${esc(x[0])}">`).join("")}</datalist>
+    <div class="row"><div><label>Wann?</label><input type="date" id="pDate" value="${todayISO()}" min="${todayISO()}"></div>
+      <div><label>Uhrzeit</label><input type="time" id="pTime"></div></div>
+    <label>Dazu</label><input id="pNote" placeholder="z. B. Treffpunkt Halle, 18 Uhr">
+    <button onclick="savePlan()">Vorschlagen</button>
+    <button class="ghost" onclick="planOpen=false;render()">Abbrechen</button></div>` : "";
+
+  const list = plans.map(p => {
+    const joined = p.joined || [];
+    const inIt = joined.includes(me);
+    const names = joined.map(nameOf);
+    return `<div class="card plan">
+      <div class="flex"><div><div class="when">${sportIcon(p.sport)} ${esc(p.sport || "Gemeinsame Einheit")}</div>
+        <div class="sub">${relDay(p.date)}${p.time ? ", " + esc(p.time) + " Uhr" : ""} · von ${esc(nameOf(p.member_id))}</div></div>
+        ${p.member_id === me ? `<button class="x" onclick="delPlan(${p.id})">✕</button>` : ""}</div>
+      ${p.note ? `<div class="sub" style="margin-top:4px">${esc(p.note)}</div>` : ""}
+      <div class="sub" style="margin-top:6px">${names.length ? "Dabei: " + names.map(esc).join(", ") : "Noch niemand dabei."}</div>
+      ${me ? `<button class="${inIt ? "ghost" : ""}" style="margin-top:8px" onclick="joinPlan(${p.id}, ${inIt})">
+        ${inIt ? "Doch nicht" : "Bin dabei"}</button>` : ""}</div>`;
+  }).join("");
+
+  const opener = planOpen ? "" :
+    `<button class="ghost" style="margin-bottom:12px" onclick="planOpen=true;render()">\u{1F4C5} Gemeinsame Einheit vorschlagen</button>`;
+  return opener + form + list;
+}
+
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
+const savePlan = guard(async () => {
+  if (!me) return toast("Erst oben auswählen, wer du bist.");
+  const date = $("#pDate").value || todayISO();
+  await api("plan", "POST", {
+    member_id: me, sport: normSport($("#pSport").value), date,
+    time: $("#pTime").value, note: $("#pNote").value,
+    dateText: relDay(date), device,
+  });
+  planOpen = false;
+  toast("Vorgeschlagen.");
+  await load();
+});
+const joinPlan = guard(async (id, leave) => {
+  await api("plan/" + id + "/join", "POST", { member_id: me, leave });
+  await load();
+});
+const delPlan = guard(async id => {
+  if (!confirm("Vorschlag zurücknehmen?")) return;
+  await api("plan/" + id, "DELETE");
+  await load();
+});
 
 /* ---------- Sportarten ---------- */
 const SPORTS = [["Laufen","🏃"],["Joggen","🏃"],["Trailrunning","⛰️"],["Laufband","🏃"],["Gehen","🚶"],["Spazieren","🚶"],["Nordic Walking","🚶"],["Wandern","🥾"],["Treppensteigen","🪜"],["Radfahren","🚴"],["Rennrad","🚴"],["Mountainbike","🚵"],["Gravelbike","🚴"],["E-Bike","🚴"],["Indoor-Cycling","🚴"],["Spinning","🚴"],["Schwimmen","🏊"],["Freiwasserschwimmen","🏊"],["Aquafitness","🏊"],["Tauchen","🤿"],["Krafttraining","🏋️"],["Gerätetraining","🏋️"],["Fitnessstudio","🏋️"],["Calisthenics","🤸"],["Functional Training","🏋️"],["Zirkeltraining","🔁"],["HIIT","🔥"],["Crossfit","🏋️"],["Seilspringen","🪢"],["Bauch-Beine-Po","🏋️"],["Rudern","🚣"],["Ruderergometer","🚣"],["Crosstrainer","🏃"],["Stepper","🪜"],["Yoga","🧘"],["Pilates","🧘"],["Stretching","🤸"],["Mobility","🤸"],["Rückentraining","🧘"],["Physiotherapie","🩺"],["Tanzen","💃"],["Zumba","💃"],["Aerobic","💃"],["Fußball","⚽"],["Basketball","🏀"],["Handball","🤾"],["Volleyball","🏐"],["Beachvolleyball","🏐"],["Hockey","🏑"],["Rugby","🏉"],["Baseball","⚾"],["Tennis","🎾"],["Tischtennis","🏓"],["Badminton","🏸"],["Squash","🎾"],["Padel","🎾"],["Golf","⛳"],["Klettern","🧗"],["Bouldern","🧗"],["Turnen","🤸"],["Leichtathletik","🏃"],["Triathlon","🏊"],["Boxen","🥊"],["Kickboxen","🥊"],["Kampfsport","🥋"],["Judo","🥋"],["Karate","🥋"],["Taekwondo","🥋"],["Ringen","🤼"],["Fechten","🤺"],["Skifahren","⛷️"],["Snowboard","🏂"],["Langlauf","🎿"],["Skitour","🎿"],["Schneeschuhwandern","🥾"],["Eislaufen","⛸️"],["Eishockey","🏒"],["Rodeln","🛷"],["Surfen","🏄"],["Stand-up-Paddling","🏄"],["Kitesurfen","🪁"],["Segeln","⛵"],["Kajak","🛶"],["Kanu","🛶"],["Inlineskaten","🛼"],["Skateboard","🛹"],["Reiten","🏇"],["Bogenschießen","🏹"],["Gartenarbeit","🪴"],["Sonstiges","🏅"]];
@@ -452,6 +532,9 @@ function viewAdd() {
       <datalist id="sportList">${SPORTS.map(x => `<option value="${esc(x[0])}">`).join("")}</datalist></div>
     <div id="unitsBox" style="display:none"><label>Krankmeldung zählt als … Einheiten dieser Woche</label>
       <select id="units">${Array.from({ length: Math.max(1, s.required) }, (_, i) => `<option value="${i + 1}"${i + 1 === Math.max(1, s.required) ? " selected" : ""}>${i + 1}</option>`).join("")}</select></div>
+    <div id="crewBox">${D.members.length > 1 ? `<label>Wer war noch dabei? (optional)</label>
+      <div class="who-pick">${D.members.map(m => `<button type="button" data-crew="${m.id}" onclick="toggleCrew(${m.id})">${esc(m.name)}</button>`).join("")}</div>
+      <div class="hint">Einer trägt ein, alle bekommen die Einheit gutgeschrieben.</div>` : ""}</div>
     <label>Datum</label><input type="date" id="date" value="${todayISO()}" max="${todayISO()}">
     <label>Kommentar (optional)</label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker"></textarea>
     <label>Foto oder Aktivitätsdatei (optional)</label>
@@ -461,13 +544,27 @@ function viewAdd() {
     <div class="hint">GPX/TCX aus Strava, Garmin oder Komoot: Aktivität → Exportieren. Distanz, Dauer &amp; Tempo werden automatisch übernommen.</div>
   </div>`;
 }
-let kind = "workout";
+let kind = "workout", crew = [];
+function toggleCrew(id) {
+  crew = crew.includes(id) ? crew.filter(x => x !== id) : [...crew, id];
+  paintCrew();
+}
+function paintCrew() {
+  const who = +($("#who")?.value || 0);
+  document.querySelectorAll("[data-crew]").forEach(b => {
+    const id = +b.dataset.crew;
+    b.style.display = id === who ? "none" : "";          // sich selbst nicht noch einmal
+    if (id === who) crew = crew.filter(x => x !== id);
+    b.classList.toggle("on", crew.includes(id));
+  });
+}
 function setKind(k) {
   kind = k;
   $("#k-workout").classList.toggle("on", k === "workout");
   $("#k-sick").classList.toggle("on", k === "sick");
   $("#unitsBox").style.display = k === "sick" ? "" : "none";
   $("#sportBox").style.display = k === "sick" ? "none" : "";
+  const cb = $("#crewBox"); if (cb) cb.style.display = k === "sick" ? "none" : "";
 }
 
 /* --- GPX / TCX --- */
@@ -581,11 +678,13 @@ async function save() {
       units: kind === "sick" ? +$("#units").value : 1,
       date: $("#date").value || todayISO(),
       sport: kind === "sick" ? "" : normSport($("#sport").value),
+      with: kind === "sick" ? [] : crew,
       note: $("#note").value, device,
       ...(pending || {}),
     };
     await api("entry", "POST", body);
     if (body.sport) localStorage.lastSport = body.sport;
+    crew = [];
     if (!me) { me = body.member_id; localStorage.me = me; }
     pending = null;
     toast(kind === "sick" ? "Krankmeldung gespeichert." : "Einheit gespeichert. 💪");
@@ -625,6 +724,18 @@ function viewSet() {
          <div class="hint">Du bekommst eine Nachricht, wenn jemand anderes einen Eintrag macht – nicht für deine eigenen Einträge von diesem Gerät.</div>`}
   </div>
 
+  <div class="card"><h2>Motivation</h2>
+    <div class="flex"><div><b>Anstupser bei Rückstand</b>
+      <div class="sub">Mitte der Woche, wenn noch nichts steht – und zum Wochenende, wenn noch etwas fehlt.</div></div>
+      <button class="s" onclick="toggleNudges()">${s.nudges ? "Aus" : "An"}</button></div>
+    ${s.nudges ? `<label>Ort für den Wetterhinweis (optional)</label>
+      <div class="row"><input id="place" placeholder="z. B. München" value="${esc(s.place || "")}">
+        <button class="s" onclick="savePlace()">Merken</button></div>
+      <div class="hint">Regnet es, wird etwas drinnen vorgeschlagen – und zwar das, was du ohnehin machst.</div>
+      <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
+      <div id="nudgePreview" class="sub"></div>` : ""}
+  </div>
+
   <div class="card"><h2>Dieses Gerät gehört zu</h2>
     <select onchange="pickMe(+this.value)">
       <option value="0"${!me ? " selected" : ""}>– bitte wählen –</option>
@@ -653,21 +764,40 @@ function viewSet() {
     <button class="ghost" onclick="location.reload()">Neu laden</button></div>`;
 }
 
-const run = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
-const saveSettings = run(async () => {
+const saveSettings = guard(async () => {
   await api("settings", "POST", {
     required: +$("#req").value, fine: +$("#fine").value, currency: $("#cur").value,
     sickMax: +$("#sickMax").value, start: $("#start").value,
   });
   toast("Gespeichert."); await load();
 });
-const addMember = run(async () => { const v = $("#nm").value.trim(); if (!v) return; await api("member", "POST", { name: v, joined: todayISO() }); await load(); });
-const renameMember = run(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
-const rejoinMember = run(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
-const delMember = run(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
-const delEntry = run(async id => { if (!confirm("Eintrag löschen?")) return; await api("entry/" + id, "DELETE"); await load(); });
-const delExpense = run(async id => { await api("expense/" + id, "DELETE"); await load(); });
-const addExpense = run(async () => {
+const toggleNudges = guard(async () => {
+  await api("settings", "POST", { nudges: !D.settings.nudges });
+  await load();
+});
+const savePlace = guard(async () => {
+  await api("settings", "POST", { place: $("#place").value });
+  toast("Gemerkt.");
+  await load();
+});
+const previewNudge = guard(async () => {
+  const box = $("#nudgePreview");
+  box.textContent = "Einen Moment …";
+  const r = await (await api("nudges", "POST", { force: me && credit(me, weekOf(todayISO())) > 0 ? "push" : "start" })).json();
+  const mine = r.nudges.find(n => n.member_id === me) || r.nudges[0];
+  box.innerHTML = mine
+    ? `<div class="nudge card" style="margin:10px 0 0"><div class="ic">\u{1F514}</div><div class="tx">
+        <b>Das Programm</b><div class="sub">${esc(mine.body)}</div></div></div>`
+    : "Gerade wäre nichts fällig – alle sind durch.";
+});
+
+const addMember = guard(async () => { const v = $("#nm").value.trim(); if (!v) return; await api("member", "POST", { name: v, joined: todayISO() }); await load(); });
+const renameMember = guard(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
+const rejoinMember = guard(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
+const delMember = guard(async id => { if (!confirm("Teilnehmer inklusive aller Einträge löschen?")) return; await api("member/" + id, "DELETE"); await load(); });
+const delEntry = guard(async id => { if (!confirm("Eintrag löschen?")) return; await api("entry/" + id, "DELETE"); await load(); });
+const delExpense = guard(async id => { await api("expense/" + id, "DELETE"); await load(); });
+const addExpense = guard(async () => {
   const a = +$("#ea").value; if (!a) return toast("Betrag fehlt.");
   await api("expense", "POST", { date: todayISO(), title: $("#et").value, amount: a }); await load();
 });
@@ -675,7 +805,7 @@ const addExpense = run(async () => {
 /* ---------- Push ---------- */
 const keyToU8 = k => { const s = (k + "=".repeat((4 - k.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"); const r = atob(s); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
 
-const togglePush = run(async () => {
+const togglePush = guard(async () => {
   const reg = await navigator.serviceWorker.ready;
   if (localStorage.pushOn === "1") {
     const sub = await reg.pushManager.getSubscription();
@@ -691,7 +821,7 @@ const togglePush = run(async () => {
   localStorage.pushOn = "1";
   toast("Push ist aktiv."); render();
 });
-const testPush = run(async () => { await api("push/test", "POST", { device }); toast("Gesendet – Benachrichtigung kommt gleich."); });
+const testPush = guard(async () => { await api("push/test", "POST", { device }); toast("Gesendet – Benachrichtigung kommt gleich."); });
 async function syncPushMember() {
   if (localStorage.pushOn !== "1" || !("serviceWorker" in navigator)) return;
   try {
@@ -709,7 +839,7 @@ function render() {
   const page = views[h] ? h : "home";
   $("#app").innerHTML = `<header><div class="dot">P</div><h1>Das Programm</h1></header>` + views[page]();
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
-  if (page === "add") setKind(kind);
+  if (page === "add") { setKind(kind); paintCrew(); const w = $("#who"); if (w) w.onchange = paintCrew; }
   document.querySelectorAll("img[data-photo]").forEach(async img => {
     try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
   });

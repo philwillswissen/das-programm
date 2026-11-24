@@ -1,4 +1,5 @@
 import { sendPush, b64u } from "./push.js";
+import { localParts, slotFor, favourites, buildMessage, geocode, forecast, behindHint } from "./nudge.js";
 import indexHtml from "./public/index.html";
 import swJs from "./public/sw.js";
 import manifestJson from "./public/manifest.json";
@@ -34,9 +35,13 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT)",
   "CREATE TABLE IF NOT EXISTS subs(device TEXT PRIMARY KEY, member_id INTEGER, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT)",
   "CREATE INDEX IF NOT EXISTS idx_entries_member ON entries(member_id, date)",
+  "CREATE TABLE IF NOT EXISTS nudges(member_id INTEGER, week TEXT, kind TEXT, sent TEXT, PRIMARY KEY(member_id, week, kind))",
+  "CREATE TABLE IF NOT EXISTS cache(k TEXT PRIMARY KEY, v TEXT, exp INTEGER)",
+  "CREATE TABLE IF NOT EXISTS plans(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, sport TEXT, date TEXT NOT NULL, time TEXT, note TEXT, created TEXT)",
+  "CREATE TABLE IF NOT EXISTS plan_joins(plan_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(plan_id, member_id))",
 ];
 
-const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2 };
+const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "", tz: "Europe/Berlin" };
 const KINDS = ["workout", "sick"];
 const MAX_PHOTO = 700000;
 
@@ -52,7 +57,7 @@ const clean = (s, max) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, m
 
 // Nachträgliche Spalten: SQLite kennt kein ADD COLUMN IF NOT EXISTS,
 // ein zweiter Versuch scheitert also und wird bewusst verschluckt.
-const ALTERS = ["ALTER TABLE entries ADD COLUMN sport TEXT"];
+const ALTERS = ["ALTER TABLE entries ADD COLUMN sport TEXT", "ALTER TABLE entries ADD COLUMN group_id TEXT"];
 
 let migrated;
 async function migrate(db) {
@@ -75,7 +80,30 @@ function weekOf(dateStr) {
   return d.toISOString().slice(0, 10);
 }
 
-async function notify(env, db, entry, member, fromDevice) {
+// Wie weit jemand diese Woche ist - fuer den dezenten Zusatz in fremden Meldungen.
+async function weekStanding(db) {
+  const week = weekOf(today());
+  const [settings, rows] = await Promise.all([
+    db.prepare("SELECT k,v FROM settings").all().then((r) => {
+      const out = { ...DEFAULTS };
+      for (const x of r.results) { try { out[x.k] = JSON.parse(x.v); } catch {} }
+      return out;
+    }),
+    db.prepare("SELECT member_id,kind,units FROM entries WHERE date >= ?").bind(week).all().then((r) => r.results),
+  ]);
+  const required = Number(settings.required) || 2;
+  const sickMax = settings.sickMax ?? required;
+  const per = new Map();
+  for (const e of rows) {
+    const cur = per.get(e.member_id) || { done: 0, sick: 0 };
+    if (e.kind === "sick") cur.sick += e.units || 1; else cur.done++;
+    per.set(e.member_id, cur);
+  }
+  const credit = (id) => { const c = per.get(id) || { done: 0, sick: 0 }; return c.done + Math.min(c.sick, sickMax); };
+  return { required, credit };
+}
+
+async function notify(env, db, entry, who, fromDevice) {
   if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return;
   const { results } = await db
     .prepare("SELECT * FROM subs WHERE device != ?")
@@ -84,16 +112,32 @@ async function notify(env, db, entry, member, fromDevice) {
   if (!results.length) return;
 
   const what = entry.sport ? entry.sport : "eine Einheit";
-  const body =
+  const base =
     entry.kind === "sick"
-      ? `${member} hat sich für diese Woche krankgemeldet.`
-      : `${member} hat ${what} eingetragen${entry.note ? ": " + entry.note : "."}`;
-  const msg = { title: "Das Programm", body, tag: "entry-" + entry.id };
+      ? `${who} hat sich für diese Woche krankgemeldet.`
+      : who.includes(" und ")
+        ? `${who} waren ${what}${entry.note ? ": " + entry.note : "."}`
+        : `${who} hat ${what} eingetragen${entry.note ? ": " + entry.note : "."}`;
+
+  // Ab Wochenmitte haengen wir denen, die noch hinterherhinken, einen kurzen Satz an.
+  let hint = () => "";
+  if (entry.kind !== "sick") {
+    try {
+      const { required, credit } = await weekStanding(db);
+      const dow = (new Date().getUTCDay() + 6) % 7; // 0 = Montag
+      hint = (memberId) =>
+        behindHint({ dow, required, credit: credit(memberId), recipientId: memberId, authorId: entry.member_id });
+    } catch (e) { console.log("Wochenstand nicht lesbar", String(e)); }
+  }
 
   await Promise.all(
     results.map(async (s) => {
       try {
-        const status = await sendPush(env, s, msg);
+        const status = await sendPush(env, s, {
+          title: "Das Programm",
+          body: base + hint(s.member_id),
+          tag: "entry-" + entry.id,
+        });
         if (status === 404 || status === 410) {
           await db.prepare("DELETE FROM subs WHERE device=?").bind(s.device).run();
         }
@@ -104,7 +148,32 @@ async function notify(env, db, entry, member, fromDevice) {
   );
 }
 
+// Benachrichtigung zu einem Vorschlag fuer eine gemeinsame Einheit.
+async function notifyPlan(env, db, plan, proposer, fromDevice) {
+  if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return;
+  const { results } = await db.prepare("SELECT * FROM subs WHERE device != ?").bind(fromDevice || "").all();
+  const when = plan.time ? `${plan.dateText} um ${plan.time}` : plan.dateText;
+  const body = `${proposer} schlägt ${plan.sport || "eine Einheit"} vor – ${when}. Wer ist dabei?`;
+  await Promise.all(results.map(async (s) => {
+    try {
+      const status = await sendPush(env, s, { title: "Das Programm", body, tag: "plan-" + plan.id });
+      if (status === 404 || status === 410) await db.prepare("DELETE FROM subs WHERE device=?").bind(s.device).run();
+    } catch (e) { console.log("push failed", s.device, String(e)); }
+  }));
+}
+
 export default {
+  // Stuendlich; wer dran ist, entscheidet runNudges anhand der lokalen Zeit.
+  async scheduled(event, env, ctx) {
+    if (!env.DB) return;
+    ctx.waitUntil(
+      migrate(env.DB)
+        .then(() => runNudges(env, env.DB, new Date(event.scheduledTime || Date.now())))
+        .then((sent) => sent.length && console.log("Nudges", JSON.stringify(sent.map((x) => x.member + ": " + x.body))))
+        .catch((e) => console.log("Nudge-Lauf fehlgeschlagen", String(e?.stack || e)))
+    );
+  },
+
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -139,18 +208,21 @@ export default {
             settings[row.k] = JSON.parse(row.v);
           } catch {}
         }
-        const [members, entries, expenses] = await Promise.all([
+        const [members, entries, expenses, plans, joins] = await Promise.all([
           all("SELECT id,name,joined FROM members ORDER BY id"),
           all(
-            "SELECT id,member_id,date,kind,units,sport,note,meta,created,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
+            "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
           all("SELECT id,date,title,amount FROM expenses ORDER BY date DESC, id DESC"),
+          all("SELECT id,member_id,sport,date,time,note FROM plans WHERE date >= date('now','-1 day') ORDER BY date, time"),
+          all("SELECT plan_id,member_id FROM plan_joins"),
         ]);
         return json({
           settings,
           members,
           entries,
           expenses,
+          plans: plans.map((p) => ({ ...p, joined: joins.filter((j) => j.plan_id === p.id).map((j) => j.member_id) })),
           vapidPublicKey: env.VAPID_PUBLIC || null,
         });
       }
@@ -186,30 +258,66 @@ export default {
           meta = JSON.stringify(picked);
         }
 
+        // Mitmacher: einer dokumentiert, alle bekommen ihren Eintrag.
+        let withIds = [];
+        if (kind !== "sick" && Array.isArray(body.with)) {
+          const wanted = [...new Set(body.with.map(Number).filter((n) => Number.isInteger(n) && n !== memberId))].slice(0, 20);
+          if (wanted.length) {
+            const rows = await db
+              .prepare(`SELECT id,name FROM members WHERE id IN (${wanted.map(() => "?").join(",")})`)
+              .bind(...wanted).all();
+            withIds = rows.results;
+          }
+        }
+        const groupId = withIds.length ? crypto.randomUUID() : null;
+        const stamp = new Date().toISOString();
+
         const res = await db
           .prepare(
-            "INSERT INTO entries(member_id,date,kind,units,sport,note,meta,photo,created) VALUES(?,?,?,?,?,?,?,?,?)"
+            "INSERT INTO entries(member_id,date,kind,units,sport,note,meta,photo,created,group_id) VALUES(?,?,?,?,?,?,?,?,?,?)"
           )
-          .bind(memberId, date, kind, units, sport, note, meta, photo, new Date().toISOString())
+          .bind(memberId, date, kind, units, sport, note, meta, photo, stamp, groupId)
           .run();
         const id = res.meta?.last_row_id;
 
+        if (withIds.length) {
+          await db.batch(withIds.map((m) =>
+            db.prepare(
+              "INSERT INTO entries(member_id,date,kind,units,sport,note,meta,photo,created,group_id) VALUES(?,?,?,?,?,?,?,?,?,?)"
+            ).bind(m.id, date, kind, units, sport, note, meta, null, stamp, groupId)
+          ));
+        }
+
+        const names = [member.name, ...withIds.map((m) => m.name)];
+        const who = names.length > 1
+          ? names.slice(0, -1).join(", ") + " und " + names[names.length - 1]
+          : names[0];
+
         ctx.waitUntil(
-          notify(env, db, { id, kind, note, sport }, member.name, clean(body.device, 64)).catch((e) =>
+          notify(env, db, { id, kind, note, sport, member_id: memberId }, who, clean(body.device, 64)).catch((e) =>
             console.log("notify failed", String(e))
           )
         );
-        return json({ ok: true, id });
+        return json({ ok: true, id, group: withIds.length + 1 });
       }
 
       // --- Loeschen ---
       if ((m = path.match(/^\/api\/(entry|member|expense)\/(\d+)$/)) && method === "DELETE") {
         const table = { entry: "entries", member: "members", expense: "expenses" }[m[1]];
+        if (m[1] === "entry") {
+          const row = await db.prepare("SELECT group_id FROM entries WHERE id=?").bind(m[2]).first();
+          if (row?.group_id) {
+            await db.prepare("DELETE FROM entries WHERE group_id=?").bind(row.group_id).run();
+            return json({ ok: true });
+          }
+        }
         await db.prepare(`DELETE FROM ${table} WHERE id=?`).bind(m[2]).run();
         if (m[1] === "member") {
           await db.batch([
             db.prepare("DELETE FROM entries WHERE member_id=?").bind(m[2]),
             db.prepare("UPDATE subs SET member_id=NULL WHERE member_id=?").bind(m[2]),
+            db.prepare("DELETE FROM plan_joins WHERE member_id=?").bind(m[2]),
+            db.prepare("DELETE FROM plans WHERE member_id=?").bind(m[2]),
           ]);
         }
         return json({ ok: true });
@@ -252,6 +360,9 @@ export default {
           if (!(key in body)) continue;
           let v = body[key];
           if (key === "currency") v = clean(v, 4) || "€";
+          else if (key === "place") v = clean(v, 60);
+          else if (key === "tz") { v = clean(v, 40); if (!v) continue; }
+          else if (key === "nudges") v = v ? 1 : 0;
           else if (key === "start") { if (!isDate(v)) continue; }
           else {
             v = Number(v);
@@ -309,6 +420,52 @@ export default {
         return json({ ok: status < 300, status });
       }
 
+      // Gemeinsame Einheit vorschlagen
+      if (path === "/api/plan" && method === "POST") {
+        const memberId = Number(body.member_id);
+        const proposer = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
+        if (!proposer) return json({ error: "Teilnehmer unbekannt." }, 400);
+        if (!isDate(body.date)) return json({ error: "Datum fehlt." }, 400);
+        const time = /^\d{2}:\d{2}$/.test(String(body.time || "")) ? body.time : null;
+        const res = await db
+          .prepare("INSERT INTO plans(member_id,sport,date,time,note,created) VALUES(?,?,?,?,?,?)")
+          .bind(memberId, clean(body.sport, 40) || null, body.date, time, clean(body.note, 200), new Date().toISOString())
+          .run();
+        const id = res.meta?.last_row_id;
+        await db.prepare("INSERT OR IGNORE INTO plan_joins(plan_id,member_id) VALUES(?,?)").bind(id, memberId).run();
+        ctx.waitUntil(
+          notifyPlan(env, db, { id, sport: clean(body.sport, 40), time, dateText: clean(body.dateText, 30) || body.date },
+            proposer.name, clean(body.device, 64)).catch((e) => console.log("plan push failed", String(e)))
+        );
+        return json({ ok: true, id });
+      }
+
+      if ((m = path.match(/^\/api\/plan\/(\d+)\/join$/)) && method === "POST") {
+        const memberId = Number(body.member_id);
+        if (!Number.isInteger(memberId)) return json({ error: "Teilnehmer fehlt." }, 400);
+        if (body.leave) await db.prepare("DELETE FROM plan_joins WHERE plan_id=? AND member_id=?").bind(m[1], memberId).run();
+        else await db.prepare("INSERT OR IGNORE INTO plan_joins(plan_id,member_id) VALUES(?,?)").bind(m[1], memberId).run();
+        return json({ ok: true });
+      }
+
+      if ((m = path.match(/^\/api\/plan\/(\d+)$/)) && method === "DELETE") {
+        await db.batch([
+          db.prepare("DELETE FROM plans WHERE id=?").bind(m[1]),
+          db.prepare("DELETE FROM plan_joins WHERE plan_id=?").bind(m[1]),
+        ]);
+        return json({ ok: true });
+      }
+
+      // Vorschau der faelligen Motivationsnachrichten; mit send=true wirklich schicken.
+      if (path === "/api/nudges" && method === "POST") {
+        const when = body.now && !isNaN(Date.parse(body.now)) ? new Date(body.now) : new Date();
+        const res = await runNudges(env, db, when, {
+          dry: !body.send,
+          force: ["start", "push", "last"].includes(body.force) ? body.force : null,
+        });
+        return json({ ok: true, nudges: res });
+      }
+
       return json({ error: "Unbekannter Endpunkt." }, 404);
     } catch (err) {
       console.log("API-Fehler", path, String(err?.stack || err));
@@ -316,5 +473,124 @@ export default {
     }
   },
 };
+
+
+/* ---------- Motivationsnachrichten ---------- */
+
+const creditOf = (entries, memberId, week, sickMax) => {
+  let done = 0, sickUnits = 0;
+  for (const e of entries) {
+    if (e.member_id !== memberId || weekOf(e.date) !== week) continue;
+    if (e.kind === "sick") sickUnits += e.units || 1;
+    else done++;
+  }
+  return { done, credit: done + Math.min(sickUnits, sickMax) };
+};
+
+const streakOf = (entries, member, week, required, sickMax, start) => {
+  const from = weekOf(member.joined && member.joined > start ? member.joined : start);
+  let streak = 0;
+  for (let w = week, i = 0; w >= from && i < 520; i++) {
+    const prev = new Date(w + "T12:00:00Z");
+    prev.setUTCDate(prev.getUTCDate() - 7);
+    const pw = prev.toISOString().slice(0, 10);
+    if (w === week) { if (creditOf(entries, member.id, w, sickMax).credit >= required) streak++; }
+    else if (creditOf(entries, member.id, w, sickMax).credit >= required) streak++;
+    else break;
+    w = pw;
+  }
+  return streak;
+};
+
+// Was jetzt gerade anstünde. `dry` liefert es zurück, ohne zu senden.
+export async function runNudges(env, db, now, { dry = false, force = null } = {}) {
+  const out = [];
+  const settings = { ...DEFAULTS, start: weekOf(today()) };
+  for (const row of (await db.prepare("SELECT k,v FROM settings").all()).results) {
+    try { settings[row.k] = JSON.parse(row.v); } catch {}
+  }
+  if (!settings.nudges && !force) return out;
+  if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return out;
+
+  const tz = settings.tz || "Europe/Berlin";
+  const here = localParts(now, tz);
+  const week = weekOf(here.date);
+  const required = Number(settings.required) || 2;
+  const sickMax = settings.sickMax ?? required;
+
+  const [members, entries, subs] = await Promise.all([
+    db.prepare("SELECT id,name,joined FROM members").all().then((r) => r.results),
+    db.prepare("SELECT member_id,date,kind,units,sport FROM entries WHERE date >= ?")
+      .bind(new Date(Date.parse(here.date) - 130 * 864e5).toISOString().slice(0, 10))
+      .all().then((r) => r.results),
+    db.prepare("SELECT * FROM subs WHERE member_id IS NOT NULL").all().then((r) => r.results),
+  ]);
+  if (!members.length) return out;
+
+  const daysLeft = 7 - ((here.dow + 6) % 7);
+  const standings = new Map(members.map((m) => [m.id, creditOf(entries, m.id, week, sickMax)]));
+  const finished = members.filter((m) => standings.get(m.id).credit >= required);
+
+  let weather = null;
+  if (settings.place) {
+    try {
+      const geo = await geocode(db, settings.place);
+      weather = await forecast(db, geo, tz);
+    } catch (e) { console.log("Wetter nicht abrufbar", String(e)); }
+  }
+
+  for (const member of members) {
+    const devices = subs.filter((x) => x.member_id === member.id);
+    if (!devices.length && !dry) continue;
+
+    const { credit } = standings.get(member.id);
+    if (credit >= required) continue;
+
+    const kind = force || (credit === 0 ? "start" : "push");
+    const effective = force || (here.dow === 0 && credit < required ? "last" : kind);
+    const slot = slotFor(member.id, week, effective);
+    if (!force && (here.dow !== slot.dow || here.hour !== slot.hour)) continue;
+
+    if (!dry && !force) {
+      const claim = await db
+        .prepare("INSERT OR IGNORE INTO nudges(member_id,week,kind,sent) VALUES(?,?,?,?)")
+        .bind(member.id, week, effective, new Date().toISOString())
+        .run();
+      if (!claim.meta?.changes) continue; // in dieser Woche schon geschickt
+    }
+
+    const ahead = finished.filter((m) => m.id !== member.id);
+    const msg = buildMessage(
+      effective,
+      {
+        name: member.name,
+        week,
+        dow: here.dow,
+        days: daysLeft,
+        left: Math.max(1, required - credit),
+        required,
+        fine: settings.fine,
+        currency: settings.currency,
+        streak: streakOf(entries, member, week, required, sickMax, settings.start),
+        aheadOf: ahead.length ? ahead[0].name : null,
+      },
+      favourites(entries, member.id, here.date),
+      weather,
+      (member.id * 2654435761 + Number(week.replace(/-/g, ""))) >>> 0
+    );
+
+    out.push({ member: member.name, member_id: member.id, kind: effective, devices: devices.length, ...msg });
+    if (dry) continue;
+
+    for (const sub of devices) {
+      try {
+        const status = await sendPush(env, sub, msg);
+        if (status === 404 || status === 410)
+          await db.prepare("DELETE FROM subs WHERE device=?").bind(sub.device).run();
+      } catch (e) { console.log("Nudge fehlgeschlagen", String(e)); }
+    }
+  }
+  return out;
+}
 
 export { weekOf, b64u };

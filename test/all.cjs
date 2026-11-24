@@ -4,12 +4,14 @@ const suites = [
   ["API", "test/run.mjs"],
   ["Verschlüsselung (RFC 8291/8292)", "test/push.test.mjs"],
   ["Push von Ende zu Ende", "test/push-e2e.cjs"],
+  ["Motivationsnachrichten", "test/nudge.test.cjs"],
+  ["Gemeinsame Einheiten und Vorschlaege", "test/social.cjs"],
   ["Oberfläche im Browser", "test/ui.cjs"],
 ];
 let failed = 0;
 for (const [name, file] of suites) {
   const live = (process.env.BASE || "").startsWith("https://");
-  if (live && file.includes("push-e2e")) { console.log(`\n### ${name}: übersprungen (braucht einen lokalen Push-Dienst)`); continue; }
+  if (live && (file.includes("push-e2e") || file.includes("nudge.test") || file.includes("social"))) { console.log(`\n### ${name}: übersprungen (braucht einen lokalen Push-Dienst)`); continue; }
   console.log(`\n### ${name}`);
   try {
     execFileSync(process.execPath, live ? ["--use-env-proxy", file] : [file], { stdio: "inherit", cwd: __dirname + "/.." });

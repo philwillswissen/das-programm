@@ -20,6 +20,9 @@ binding = "DB"
 database_name = "sportkasse"
 database_id = "f846d535-aff2-4ebd-b062-7b4e2f91e952"
 
+[triggers]
+crons = ["0 * * * *"]   # stuendlich; wer gerade dran ist, entscheidet der Worker
+
 [observability]
 enabled = true
 
