@@ -104,6 +104,7 @@ export async function runPushTests(log) {
   ok(h["content-encoding"] === "aes128gcm", "Header content-encoding: aes128gcm");
   ok(h["content-type"] === "application/octet-stream", "Header content-type");
   ok(h.ttl === "86400", "Header TTL");
+  ok(h.urgency === "high", "Header Urgency high - der Dienst darf nicht warten");
   ok(h.authorization.startsWith("vapid t=") && h.authorization.includes(", k=" + env.VAPID_PUBLIC), "Authorization: vapid t=…, k=…");
 
   // --- VAPID-JWT prüfen ---

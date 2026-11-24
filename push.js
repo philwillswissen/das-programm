@@ -82,7 +82,10 @@ export async function sendPush(env, sub, message) {
       "content-encoding": "aes128gcm",
       "content-type": "application/octet-stream",
       ttl: "86400",
-      urgency: "normal",
+      // "high": der Push-Dienst soll sofort ausliefern. Bei "normal" darf er
+      // warten, bis das Telefon von sich aus wieder aufwacht - dann kommt die
+      // Nachricht erst, wenn man die App oeffnet.
+      urgency: "high",
       authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC}`,
     },
     body,

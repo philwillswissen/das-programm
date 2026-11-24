@@ -77,6 +77,7 @@ async function decrypt(dev, buf) {
   ok(received[0]?.headers["content-encoding"] === "aes128gcm", "aes128gcm-Verschlüsselung");
   ok(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/.test(received[0]?.headers.authorization || ""), "gültiger VAPID-Authorization-Header");
   ok(received[0]?.headers.ttl === "86400", "TTL gesetzt");
+  ok(received[0]?.headers.urgency === "high", "sofort ausliefern (Urgency high, nicht normal)");
   const msg = await decrypt(dBen, received[0].body);
   ok(msg.title === "Das Programm", "Titel der Benachrichtigung");
   ok(/Anna/.test(msg.body) && /Laufen/.test(msg.body),
