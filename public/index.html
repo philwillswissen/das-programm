@@ -78,6 +78,7 @@ label{font-size:13px;color:var(--mut);display:block;margin-top:14px;font-weight:
 .row>*{flex:1;margin:4px 0}
 .row>.x,.row>.s{flex:0 0 auto}
 body.locked nav,body.locked #install,body.locked #backdrop{display:none}
+body.welcoming nav{display:none}
 #ask .btns{display:flex;gap:10px;margin-top:16px}
 #ask .btns button{flex:1;margin:0}
 #ask .warn{background:var(--bad);color:#fff}
@@ -111,14 +112,18 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .tile b small{font-size:13px;font-weight:600;color:var(--mut);margin-left:3px;letter-spacing:0}
 .tile span{font-size:12px;color:var(--mut)}
 
-.vbars{display:flex;align-items:flex-end;gap:4px;height:124px;position:relative;margin:14px 0 2px;padding-top:16px}
-.vbars .goal{position:absolute;left:0;right:0;border-top:1px dashed var(--mut);opacity:.75}
-.vbars .goal em{position:absolute;right:0;top:-15px;font-size:10px;font-style:normal;color:var(--mut);background:var(--card);padding:0 3px}
-.vbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:2px;cursor:default}
+.vbars{display:flex;gap:4px;height:136px;position:relative;margin:14px 0 2px}
+.vbar{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;cursor:default}
+/* Zeichenfläche: Säulen, Zahl und Ziel rechnen alle gegen dieselbe Höhe */
+.vbar .plot{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;margin-top:14px}
 .vbar i{display:block;background:var(--bar);border-radius:4px 4px 0 0;min-height:2px}
 .vbar i.q{background:var(--barq)}
+.vbar i.now{background:var(--accsoft);border:1.5px dashed var(--acc);border-bottom:0}
 .vbar u{display:block;font-size:10px;color:var(--mut);text-align:center;text-decoration:none;line-height:1}
-.vbar em{font-size:10px;font-style:normal;color:var(--t);text-align:center;line-height:1;font-variant-numeric:tabular-nums}
+.vbar em{position:absolute;left:50%;transform:translateX(-50%);z-index:2;font-size:10px;font-style:normal;color:var(--fg);
+  text-align:center;line-height:1;padding:1px 2px;background:var(--card);border-radius:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vbar .goal{position:absolute;left:-2px;right:-2px;z-index:1;border-top:1px dashed var(--mut);opacity:.8;pointer-events:none}
+.vbar .goal b{position:absolute;left:calc(100% + 6px);top:-7px;font-size:10px;font-weight:600;color:var(--mut);white-space:nowrap;line-height:1.2}
 .vstack{display:flex;flex-direction:column-reverse;gap:2px;justify-content:flex-start}
 .vstack i{border-radius:0}
 .vstack i:last-child{border-radius:4px 4px 0 0}
@@ -154,7 +159,12 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 /* Diese Woche + die drei davor in einer Karte */
 .wk td{padding:9px 3px}
 .wk td.nm{width:38%}
-.wk td.nm .bar{max-width:120px}
+.wk th{white-space:nowrap}
+/* Rangliste: Medaille und Name bleiben zusammen, Köpfe brechen nicht um */
+.board th{white-space:nowrap}
+.board td.who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:9.5em}
+.board th.sortable{padding-top:12px;padding-bottom:12px}
+@media (max-width:360px){.board td,.board th{padding-left:2px;padding-right:2px;font-size:14px}.board th{font-size:11px}}
 .cell{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;font-size:12px;font-weight:700;
   border:1.5px dashed var(--fieldline);color:var(--mut)}
 .cell.ok{background:var(--acc);border:1.5px solid var(--acc);color:#fff}
@@ -241,9 +251,9 @@ nav a.plus svg{width:24px;height:24px}
 #backdrop.on{opacity:1;pointer-events:auto}
 #install,.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:22px 22px 0 0;
   padding:22px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(2,6,23,.25);transform:translateY(115%);
-  transition:transform .32s cubic-bezier(.2,.8,.2,1);max-width:620px;margin:0 auto;max-height:88vh;overflow:auto}
+  transition:transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s linear .32s;visibility:hidden;max-width:620px;margin:0 auto;max-height:88vh;overflow:auto}
 #install::before,.sheet::before{content:"";position:absolute;top:8px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
-#install.on,.sheet.on{transform:none}
+#install.on,.sheet.on{transform:none;visibility:visible;transition:transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .sheet h3{margin:0 0 8px;font-size:17px}
 .sheet p,.sheet li{font-size:14px;line-height:1.55;color:var(--mut);margin:7px 0}
 .sheet b{color:var(--t)}
@@ -302,8 +312,7 @@ button.i::after{content:"";position:absolute;inset:-11px}
 .sheet button.danger{background:transparent;color:var(--bad);border:0;font-weight:600}
 
 /* Diagramme: Monat unter der Achse, Platz rechts für die Zielmarke */
-.vbars.has-goal{padding-right:38px}
-.vbars .goal em{right:0;top:-7px;width:36px;text-align:right;background:transparent;line-height:1.1}
+.vbars.has-goal{padding-right:44px}
 .vbar u.mo{font-weight:600;min-height:10px;margin-top:1px}
 .tbl-wrap{overflow-x:auto}
 
@@ -370,6 +379,7 @@ addEventListener("appinstalled", () => { hideInstall(); toast("Installiert. 🎉
 function showInstall(force) {
   if (installed() || pinResolve || !D) return;
   if (!force) {
+    if (welcoming()) return;                          // erst "Wer bist du?", dann Installieren - nie beides übereinander
     const later = +localStorage.installLater || 0;
     if (Date.now() - later < 7 * 864e5) return;      // nach „Später" eine Woche Ruhe
     if (!installEvent && !isIos()) return;            // Browser ohne Dialog nicht belästigen
@@ -435,7 +445,7 @@ const INFOS = () => { const S = (D && D.settings) || {}; return {
     <ul><li><b>gefüllt</b>: Ziel geschafft</li>
         <li><b>gestrichelt rot</b>: Ziel verpasst</li>
         <li><b>blass</b>: zählte für diese Person noch nicht</li></ul>
-    <p>Rechts steht die laufende Woche mit Fortschrittsbalken, daneben die Serie. 🤒 markiert eine Krankmeldung.</p>
+    <p>Unter „diese“ steht die laufende Woche, grün sobald das Ziel erreicht ist, daneben die Serie. 🤒 markiert eine Krankmeldung.</p>
     <p>Wer das Ziel verpasst, zahlt ${D ? money(S.fine, S.currency) : "den eingestellten Betrag"} in die Kasse.</p>`],
   anstupser: ["Wann die App sich meldet", `
     <p>Nur wenn du hinterherhinkst, und höchstens einmal je Gelegenheit:</p>
@@ -674,35 +684,38 @@ function viewHome() {
       ? `<span class="cell ok" title="Woche ab ${dm(w)}: geschafft">${n}</span>`
       : `<span class="cell miss" title="Woche ab ${dm(w)}: verpasst">${n}</span>`;
   };
-  const woche = `<div class="card"><h2>Diese Woche <small>ab ${dm(cur)} · Ziel ${s.required}</small>${infoBtn("woche")}</h2>
+  // Spaltenköpfe mit Monat: "2.11." statt "02." - sonst weiß man nicht, welcher Monat.
+  const kurz = w => +w.slice(8) + "." + +w.slice(5, 7) + ".";
+  const woche = `<div class="card"><h2>Wochenstand <small>Ziel ${s.required} pro Woche</small>${infoBtn("woche")}</h2>
     <table class="wk">
-      <tr><th></th>${prev.map(w => `<th>${dm(w).slice(0, 3)}</th>`).join("")}<th>jetzt</th><th>\u{1F525}</th></tr>
+      <tr><th></th>${prev.map(w => `<th class="nw">${kurz(w)}</th>`).join("")}<th class="nw" title="Woche ab ${dm(cur)}">diese</th><th>\u{1F525}</th></tr>
       ${D.members.map(m => {
         const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
-        return `<tr><td class="nm">${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}
-          <div class="bar"><i style="width:${Math.min(100, cr / s.required * 100)}%"></i></div></td>
+        return `<tr><td class="nm">${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}</td>
           ${prev.map(w => `<td>${feld(m, w)}</td>`).join("")}
           <td class="now ${ok ? "ok" : ""}">${d}${k ? " +" + k + "🤒" : ""} / ${s.required}${ok ? " ✓" : ""}</td>
           <td>${st[m.id]?.streak || "–"}</td></tr>`;
       }).join("")}
     </table>
-    <div class="legend-cells"><span><span class="cell ok">✓</span>geschafft</span>
-      <span><span class="cell miss">✕</span>verpasst</span></div></div>`;
+    <div class="legend-cells"><span><span class="cell ok">3</span>geschafft</span>
+      <span><span class="cell miss">1</span>verpasst</span><span>Zahl = Einheiten der Woche</span></div></div>`;
 
-  const rangliste = `<div class="card"><h2>Rangliste${infoBtn("rangliste")}</h2><table>
+  // Die Guthaben-Spalte nur, wenn jemand welches hat - eine Spalte voller Nullen sagt nichts.
+  const showCredits = s.bonus && D.members.some(m => st[m.id].credits > 0);
+  const rangliste = `<div class="card"><h2>Rangliste${infoBtn("rangliste")}</h2><div class="tbl-wrap"><table class="board">
     <tr><th></th>${th("weeksDone", "Wochen", "erfolgreich abgeschlossene Wochen")}
       ${th("sessions", "Einheiten", "Einheiten insgesamt")}
       ${th("streak", "\u{1F525}", "aktuelle Serie")}
       ${th("bestStreak", "Rekord", "längste Serie")}
-      ${s.bonus ? "<th>✨</th>" : ""}</tr>
+      ${showCredits ? '<th title="Guthaben">✨</th>' : ""}</tr>
     ${board.map(m => {
       const b = st[m.id], i = rang.get(m.id);
-      return `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
+      return `<tr><td class="who">${["🥇", "🥈", "🥉"][i] || i + 1 + "."}&nbsp;${esc(m.name)}</td>
         <td class="nw">${b.weeksDone}/${b.weeks}${b.saved ? ` <span class="ok" title="mit Guthaben gerettet">✨</span>` : ""}</td>
         <td>${b.sessions}</td><td>${b.streak || "–"}</td><td>${b.bestStreak || "–"}</td>
-        ${s.bonus ? `<td class="nw">${fmtCredits(b.credits)}</td>` : ""}</tr>`;
+        ${showCredits ? `<td class="nw">${fmtCredits(b.credits)}</td>` : ""}</tr>`;
     }).join("")}
-  </table></div>`;
+  </table></div></div>`;
 
   const saldo = b => `${b.balance > 0.004 ? "+" : ""}${plain(b.balance)}`;
   const meinSaldo = me && st[me]
@@ -818,22 +831,25 @@ const hours = h => (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10).toLocaleS
 const seriesColor = i => "var(--s" + ((i % 8) + 1) + ")";
 
 // Säulen: eine Reihe, Zahl über der Säule, gestrichelte Ziellinie.
-// items: [{ label, value, tip }]
+// items: [{ label, value, tip, now }] - now: die laufende Woche, die noch nicht vorbei ist.
 function colBars(items, goal) {
   const max = Math.max(goal, ...items.map(x => x.value), 1);
-  const line = goal ? goalLine(goal, max) : "";
-  return `<div class="vbars${goal ? " has-goal" : ""}">${line}${items.map(x => {
+  return `<div class="vbars${goal ? " has-goal" : ""}">${items.map((x, i) => {
     const met = goal ? x.value >= goal : x.value > 0;
-    return `<div class="vbar" data-tip="${esc(x.tip)}">
-      <em>${x.value || ""}</em>
-      <i class="${met ? "" : "q"}" style="height:${(x.value / max) * 100}%"></i>
+    const h = (x.value / max) * 100;
+    // Eine angefangene Woche ist nicht verfehlt - sie läuft noch. Umrandet statt grau.
+    const cls = met ? "" : x.now ? "now" : "q";
+    return `<div class="vbar" data-tip="${esc(x.tip)}"><div class="plot">
+      <i class="${cls}" style="height:${h}%"></i>${x.value ? `<em style="bottom:calc(${h}% + 2px)">${x.value}</em>` : ""}
+      ${goal ? goalMark(goal, max, i === items.length - 1) : ""}</div>
       <u>${esc(x.label)}</u>${x.month !== undefined ? `<u class="mo">${esc(x.month)}</u>` : ""}</div>`;
   }).join("")}</div>`;
 }
-// Die Linie geht bis zum Rand, die Beschriftung steht rechts daneben - nie über einer Säule.
-// Die Linie sitzt im Zeichenbereich (unterhalb von padding-top), also wie die Säulen gerechnet.
-const goalLine = (goal, max) =>
-  `<div class="goal" style="bottom:calc(${(goal / max) * 100}% * (124 - 16) / 124 + 24px)"><em>Ziel<br>${goal}</em></div>`;
+// Das Ziel als Strich über jeder Säule. Gleiche Ziele nebeneinander ergeben eine
+// durchgehende Linie; ändert sich das Ziel (jemand kommt dazu), macht sie eine Stufe.
+// Die Beschriftung steht rechts neben der letzten Säule - nie über einer Säule.
+const goalMark = (goal, max, last) =>
+  `<span class="goal" style="bottom:${(goal / max) * 100}%">${last ? `<b>Ziel ${goal}</b>` : ""}</span>`;
 // Monat nur dort, wo er wechselt - sonst weiß man bei "07." nicht, ob September oder Oktober.
 const MON = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const monthMarks = weeks => weeks.map((w, i) => {
@@ -845,23 +861,30 @@ const asWeeks = weeks => weeks.map((w, i, all) => ({
   label: w.week.slice(8) + ".",
   month: monthMarks(all.map(x => x.week))[i],
   value: w.units,
-  tip: "Woche ab " + dm(w.week) + " · " + w.units + " " + (w.units === 1 ? "Einheit" : "Einheiten"),
+  now: w.week === weekOf(todayISO()),
+  tip: "Woche ab " + dm(w.week) + " · " + w.units + " " + (w.units === 1 ? "Einheit" : "Einheiten")
+    + (w.week === weekOf(todayISO()) ? " · läuft noch" : ""),
 }));
+// Gruppenziel je Woche: Ziel mal alle, die in dieser Woche schon mitgezählt haben.
+const teamGoals = weeks => weeks.map(w => R.required * D.members.filter(m =>
+  weekOf(m.joined && m.joined > D.settings.start ? m.joined : D.settings.start) <= w.week).length);
 
 // Gestapelte Säulen: ein Segment je Person, 2 px Fuge dazwischen.
-function stackBars(stacked, people, goal) {
+// goals: das Gruppenziel je Woche - es zählen nur die, die in der Woche schon dabei waren.
+function stackBars(stacked, people, goals) {
   const totals = stacked.map(w => Object.values(w.byMember).reduce((a, b) => a + b, 0));
-  const max = Math.max(goal, ...totals, 1);
-  const line = goal ? goalLine(goal, max) : "";
+  const max = Math.max(...goals, ...totals, 1);
   const months = monthMarks(stacked.map(w => w.week));
-  return `<div class="vbars${goal ? " has-goal" : ""}">${line}${stacked.map((w, wi) => {
+  const any = goals.some(Boolean);
+  return `<div class="vbars${any ? " has-goal" : ""}">${stacked.map((w, wi) => {
     const parts = people.map((p, i) => ({ p, i, n: w.byMember[p.id] || 0 })).filter(x => x.n);
     const names = parts.map(x => x.p.name + ": " + x.n).join(" · ");
-    return `<div class="vbar" data-tip="Woche ab ${esc(dm(w.week))} · ${totals[wi]} gesamt${names ? " · " + esc(names) : ""}">
-      <em>${totals[wi] || ""}</em>
-      <div class="vstack" style="height:${(totals[wi] / max) * 100}%">
+    const h = (totals[wi] / max) * 100;
+    return `<div class="vbar" data-tip="Woche ab ${esc(dm(w.week))} · ${totals[wi]} gesamt${goals[wi] ? " · Ziel " + goals[wi] : ""}${names ? " · " + esc(names) : ""}"><div class="plot">
+      <div class="vstack" style="height:${h}%">
         ${parts.map(x => `<i style="height:${(x.n / totals[wi]) * 100}%;background:${seriesColor(x.i)}"></i>`).join("")}
-      </div>
+      </div>${totals[wi] ? `<em style="bottom:calc(${h}% + 2px)">${totals[wi]}</em>` : ""}
+      ${goals[wi] ? goalMark(goals[wi], max, wi === stacked.length - 1) : ""}</div>
       <u>${w.week.slice(8)}.</u><u class="mo">${months[wi]}</u></div>`;
   }).join("")}</div>`;
 }
@@ -912,12 +935,13 @@ function viewStats() {
         d.avgHr ? ` Durchschnittspuls ${d.avgHr}.` : ""}</div></div>`;
 
   const verlauf = `<div class="card"><h2>Einheiten je Woche</h2>
-    ${mine ? colBars(asWeeks(d.weeks), R.required) : stackBars(R.team.stacked, people, R.required * Math.max(1, people.length))}
+    ${mine ? colBars(asWeeks(d.weeks), R.required) : stackBars(R.team.stacked, people, teamGoals(R.team.stacked))}
     ${mine ? "" : `<div class="legend">${people.slice(0, 8).map((p, i) =>
       `<span><b style="background:${seriesColor(i)}"></b>${esc(p.name)}</span>`).join("")}</div>`}
     <div class="hint">Die letzten ${d.weeks.length} Wochen. ${mine
-      ? "Graue Säulen haben das Ziel verfehlt."
-      : `Die Linie ist das Ziel der ganzen Gruppe: ${R.required} je Person.`}</div>
+      ? "Graue Säulen haben das Ziel verfehlt." + (d.weeks.some(w => w.week === weekOf(todayISO()) && w.units < R.required)
+          ? " Die umrandete ist die laufende Woche." : "")
+      : `Die Linie ist das Ziel der ganzen Gruppe: ${R.required} je Person, die in der Woche schon dabei war.`}</div>
     <details class="more"><summary>Wochen als Tabelle</summary><div class="tbl-wrap"><table style="margin-top:6px">
       ${mine
         ? `<tr><th>Woche ab</th><th>Einheiten</th><th>Ziel</th></tr>${[...d.weeks].reverse().map(w =>
@@ -1131,9 +1155,11 @@ function welcome() {
     <h2>Wer bist du?</h2>
     <div class="sub">Einmal auswählen – dieses Handy merkt sich das. Kein Konto, kein Passwort.</div>
     <div class="seg who">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div>
-    <button class="link" style="margin-top:10px" onclick="try{sessionStorage.lookOnly='1'}catch{};render()">Erst mal nur umsehen</button></div>`;
+    <button class="link" style="margin-top:10px" onclick="try{sessionStorage.lookOnly='1'}catch{};render();setTimeout(() => showInstall(), 800)">Erst mal nur umsehen</button></div>`;
 }
-function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); }
+// Beim ersten Start steht nur die eine Frage da: keine Navigation, kein Installationsfenster.
+const welcoming = () => !!(D && D.members.length && !me && !lookOnly());
+function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); setTimeout(() => showInstall(), 800); }
 
 /* ---------- Gemeinsame Einheit vorschlagen ---------- */
 let planOpen = false;
@@ -1940,6 +1966,7 @@ function render() {
   // Kurzes Einblenden nur beim Seitenwechsel, nicht bei jedem Neuzeichnen.
   if (page !== lastPage) { app.classList.remove("in"); void app.offsetWidth; app.classList.add("in"); if (lastPage) scrollTo(0, 0); }
   lastPage = page;
+  document.body.classList.toggle("welcoming", page === "home" && welcoming());
   const base = page.split("/")[0];
   document.querySelectorAll("nav a").forEach(a => { const on = a.hash === "#" + base; a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
   if (page === "add") {
