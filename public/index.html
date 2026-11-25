@@ -13,32 +13,42 @@
 <link rel="apple-touch-icon" href="/icon-192.png?v=__V__">
 <style>
 :root{
-  --bg:#f4f6f9; --card:#fff; --fg:#0b1220; --mut:#667085; --line:#e4e8ef;
-  --acc:#16a34a; --accd:#15803d; --bad:#dc2626; --warn:#d97706; --chip:#eef2f7;
+  --bg:#f2f4f7; --card:#fff; --fg:#0b1220; --mut:#5d6779; --line:#e4e8ef;
+  --acc:#16a34a; --accd:#15803d; --accsoft:#16a34a1c; --bad:#dc2626; --warn:#b45309; --chip:#eef2f7;
   --field:#f7f9fc; --fieldline:#c3ccda; --focus:#16a34a33;
+  --navh:64px; --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 1px rgba(16,24,40,.03);
 }
 @media (prefers-color-scheme:dark){
   :root{ --bg:#0b1220; --card:#151d2e; --fg:#eef2f7; --mut:#9aa7bd; --line:#2b3850; --chip:#1f2b40;
-         --field:#0d1526; --fieldline:#3b4a66; --focus:#22c55e40; }
+         --field:#0d1526; --fieldline:#3b4a66; --focus:#22c55e40; --accsoft:#22c55e24; --warn:#f59e0b; --shadow:none; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
 body{
   font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
-  background:var(--bg);color:var(--fg);
-  padding:max(10px,env(safe-area-inset-top)) 0 calc(76px + env(safe-area-inset-bottom));
+  background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased;
+  padding:max(10px,env(safe-area-inset-top)) 0 calc(var(--navh) + 16px + env(safe-area-inset-bottom));
 }
-main{max-width:620px;margin:0 auto;padding:0 14px}
-header{display:flex;align-items:center;gap:10px;margin:4px 0 14px}
-header h1{font-size:19px;margin:0;letter-spacing:-.01em}
-header .dot{width:30px;height:30px;border-radius:9px;display:block}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
-h2{margin:0 0 10px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em}
-.big{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+main{max-width:620px;margin:0 auto;padding:0 16px}
+main.in{animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Kopf: Seitentitel statt immer derselbe App-Name */
+header.top{display:flex;align-items:center;gap:10px;margin:6px 2px 14px;min-height:40px}
+header.top h1{font-size:28px;line-height:1.15;margin:0;letter-spacing:-.02em;font-weight:800;flex:1}
+header.top .dot{width:30px;height:30px;border-radius:9px;display:block;flex:0 0 auto}
+a.back{display:inline-flex;align-items:center;gap:2px;color:var(--acc);text-decoration:none;font-weight:600;font-size:16px;
+  min-height:44px;padding-right:12px;margin:0 0 -6px 2px}
+a.back svg{width:20px;height:20px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+h2{margin:0 0 10px;font-size:15px;font-weight:700;color:var(--fg);letter-spacing:-.005em;display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
+h2 small{font-size:13px;font-weight:500;color:var(--mut)}
+.big{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
 .sub{color:var(--mut);font-size:13px}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--mut);font-weight:600}
+td,th{padding:8px 4px;text-align:right;border-bottom:1px solid var(--line)}
 .nw{white-space:nowrap}
 th.sortable{cursor:pointer;user-select:none}
 th.sortable.on{color:var(--acc)}
@@ -52,25 +62,19 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box
 select{background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);
   background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
 input[type=date],input[type=time]{min-height:46px}
-input[type=file]{padding:9px 12px;border-style:dashed;color:var(--mut)}
-input[type=file]::file-selector-button{font:inherit;font-weight:600;margin-right:10px;padding:7px 12px;
-  border:0;border-radius:9px;background:var(--chip);color:var(--fg)}
-button{font:inherit;width:100%;padding:12px 13px;border-radius:12px;border:0;background:var(--card);color:var(--fg);margin:5px 0;appearance:none}
 textarea{min-height:64px;resize:vertical}
-button{background:var(--acc);color:#fff;border:0;font-weight:700;cursor:pointer}
-button.ghost{background:var(--chip);color:var(--fg);border:1px solid var(--line)}
-button.s{border:1px solid var(--line)}
+button{font:inherit;width:100%;padding:13px;border-radius:12px;border:0;background:var(--acc);color:#fff;margin:5px 0;
+  appearance:none;font-weight:700;cursor:pointer;min-height:44px}
 button:active{background:var(--accd)}
-button.ghost{background:var(--chip);color:var(--fg)}
-button.s{width:auto;padding:8px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600}
-button.x{width:auto;padding:6px 10px;background:transparent;color:var(--mut);font-size:16px}
+button:focus-visible,a:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.ghost{background:var(--chip);color:var(--fg);border:1px solid var(--line)}
+button.s{width:auto;padding:8px 14px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;border:1px solid var(--line);min-height:36px}
+button.x{width:auto;min-width:44px;min-height:44px;padding:6px 10px;background:transparent;color:var(--mut);font-size:16px;margin:-6px -8px -6px 0;border:0}
+button.link{width:auto;background:transparent;color:var(--acc);padding:6px 2px;font-weight:600;font-size:14px;min-height:36px;margin:0;border:0}
 label{font-size:13px;color:var(--mut);display:block;margin-top:14px;font-weight:600}
 .row{display:flex;gap:8px;align-items:center}
 .row>*{flex:1;margin:4px 0}
 .row>.x,.row>.s{flex:0 0 auto}
-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:9}
-nav a b{display:block;font-size:19px;font-weight:400;line-height:1.3}
-nav a.on{color:var(--acc)}
 body.locked nav,body.locked #install,body.locked #backdrop{display:none}
 #ask .btns{display:flex;gap:10px;margin-top:16px}
 #ask .btns button{flex:1;margin:0}
@@ -78,14 +82,16 @@ body.locked nav,body.locked #install,body.locked #backdrop{display:none}
 .item{padding:10px 0;border-top:1px solid var(--line)}
 .item:first-of-type{border-top:0}
 .chip{display:inline-block;background:var(--chip);color:var(--mut);border-radius:999px;padding:2px 9px;font-size:12px;margin:3px 4px 0 0}
-img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top:8px;display:block;background:var(--chip)}
-.seg{display:flex;gap:6px;margin:6px 0}
-.seg button{flex:1;background:var(--chip);color:var(--fg);font-weight:600}
-.seg button.on{background:var(--acc);color:#fff}
+img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top:10px;display:block;background:var(--chip)}
+.seg{display:flex;gap:4px;margin:6px 0;background:var(--chip);border-radius:12px;padding:3px}
+.seg button{flex:1;background:transparent;color:var(--fg);font-weight:600;margin:0;min-height:40px;padding:9px}
+.seg button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(2,6,23,.15)}
+.seg.who{background:transparent;padding:0;gap:6px;flex-wrap:wrap}
+.seg.who button{flex:1 1 auto;background:var(--chip)}
 .hint{font-size:12px;color:var(--mut);margin-top:8px}
 .bar{height:6px;border-radius:4px;background:var(--chip);overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--acc)}
-.flex{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.flex{display:flex;justify-content:space-between;align-items:center;gap:8px}
 
 /* Reihenfarben: geprüfte Standardpalette, feste Reihenfolge, nie durchgewechselt.
    Dunkle Stufen sind dieselben Farbtöne, für die dunkle Fläche neu abgestuft. */
@@ -98,8 +104,9 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
       --bar:#22c55e;--barq:#334155}}
 
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tile{background:var(--chip);border-radius:12px;padding:11px 12px}
-.tile b{display:block;font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.tile{background:var(--chip);border-radius:14px;padding:12px}
+.tile b{display:block;font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
+.tile b small{font-size:13px;font-weight:600;color:var(--mut);margin-left:3px;letter-spacing:0}
 .tile span{font-size:12px;color:var(--mut)}
 
 .vbars{display:flex;align-items:flex-end;gap:4px;height:124px;position:relative;margin:14px 0 2px;padding-top:16px}
@@ -125,38 +132,125 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 #tip{position:fixed;z-index:40;background:#0b1220;color:#fff;border-radius:8px;padding:6px 9px;font-size:12px;
      pointer-events:none;opacity:0;transition:opacity .12s;white-space:nowrap;box-shadow:0 4px 16px rgba(2,6,23,.3)}
 #tip.on{opacity:.96}
-.hero{background:linear-gradient(140deg,#16a34a,#0d9488);color:#fff;border:0;text-align:center;padding:22px 16px}
+
+.hero{background:linear-gradient(140deg,#16a34a,#0d9488);color:#fff;border:0;text-align:center;padding:22px 18px 18px;box-shadow:0 8px 24px -12px rgba(13,148,136,.55)}
 .hero .flame{font-size:40px;line-height:1}
-.hero .big{font-size:38px;margin-top:2px}
-.hero .sub,.hero h2{color:rgba(255,255,255,.88)}
-.hero .bar{background:rgba(255,255,255,.28);margin:14px 0 6px}
+.hero .big{font-size:40px;margin-top:2px}
+.hero .sub,.hero h2{color:rgba(255,255,255,.92)}
+.hero .bar{background:rgba(255,255,255,.28);margin:14px 0 6px;height:8px}
 .hero .bar i{background:#fff}
-.nudge{display:flex;gap:12px;align-items:center;background:var(--chip);border:1px solid var(--line)}
-.nudge .ic{font-size:26px;flex:0 0 auto}
-.nudge .tx{flex:1;min-width:0}
-.nudge b{display:block;font-size:15px}
-.day{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 6px 2px}
+
+/* Hinweise: eine schmale Zeile statt einer halben Seite */
+.nudge{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 6px 8px 12px;margin-bottom:12px}
+.nudge .ic{font-size:20px;flex:0 0 auto;line-height:1}
+.nudge .tx{flex:1;min-width:0;font-size:14px;line-height:1.3}
+.nudge b{display:block;font-size:14px}
+.nudge .sub{font-size:12px}
+.nudge button.s{margin:0}
+.nudge button.x{margin:0;min-width:36px}
+
+/* Diese Woche + die drei davor in einer Karte */
+.wk td{padding:9px 3px}
+.wk td.nm{width:38%}
+.wk td.nm .bar{max-width:120px}
+.cell{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;font-size:12px;font-weight:700;
+  border:1.5px dashed var(--fieldline);color:var(--mut)}
+.cell.ok{background:var(--acc);border:1.5px solid var(--acc);color:#fff}
+.cell.miss{border:1.5px dashed var(--bad);color:var(--bad)}
+.cell.na{border-color:transparent;opacity:.5}
+.wk .now{font-weight:700;white-space:nowrap}
+.legend-cells{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:10px;align-items:center}
+.legend-cells .cell{width:16px;height:16px;border-radius:5px;font-size:9px;margin-right:5px;vertical-align:-4px}
+
+details.more{margin-top:10px;border-top:1px solid var(--line)}
+details.more summary{list-style:none;cursor:pointer;color:var(--acc);font-weight:600;font-size:14px;padding:12px 0 2px;min-height:40px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:" \25BE"}
+details.more[open] summary::after{content:" \25B4"}
+.mine{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--chip);font-size:14px}
+.mine b{font-variant-numeric:tabular-nums}
+
+.day{font-size:13px;font-weight:700;color:var(--mut);margin:18px 0 8px 4px}
 .day:first-child{margin-top:0}
-.post{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-bottom:10px}
-.post .who{display:flex;align-items:center;gap:9px}
-.post .av{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
+.post{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.post .who{display:flex;align-items:center;gap:10px}
+.post .av{width:34px;height:34px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
 .post .act{font-size:16px;margin-top:9px}
-.plan{border:1px dashed var(--acc);background:var(--card)}
+.post button.more-btn{font-size:20px;letter-spacing:1px;line-height:1;color:var(--mut)}
+.plan{border:1.5px dashed var(--acc);background:var(--card)}
 .plan .when{font-weight:700}
+.feedbar{display:flex;justify-content:space-between;align-items:center;margin:-4px 0 10px;gap:8px}
+.feedbar button{width:auto;background:transparent;color:var(--mut);border:0;font-weight:600;font-size:14px;padding:4px 2px;margin:0;min-height:36px}
+.feedbar button.pl{color:var(--acc)}
 .who-pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
-.who-pick button{flex:0 0 auto;width:auto;padding:7px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;margin:0}
+.who-pick button{flex:0 0 auto;width:auto;padding:7px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;margin:0;min-height:38px}
 .who-pick button.on{background:var(--acc);color:#fff}
-nav a{flex:1;text-align:center;padding:11px 0 13px;color:var(--mut);text-decoration:none;font-size:9.5px;font-weight:600}
+
+/* Eintrag */
+.for{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
+.for label{margin:0;flex:0 0 auto;font-size:14px}
+.for select{width:auto;flex:1;margin:0;padding:9px 34px 9px 12px;font-weight:600;border-radius:999px}
+.picks{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.picks button{width:auto;flex:0 0 auto;margin:0;padding:7px 12px;min-height:38px;font-size:14px;font-weight:600;
+  background:var(--chip);color:var(--fg);border:1px solid var(--line);border-radius:999px}
+.picks button.on{background:var(--accsoft);border-color:var(--acc);color:var(--fg)}
+.drop{position:relative;display:flex;gap:12px;align-items:center;border:1.5px dashed var(--fieldline);border-radius:14px;
+  padding:14px;margin:6px 0;background:var(--field);color:var(--fg);font-size:15px;font-weight:600}
+.drop .ic{font-size:24px;line-height:1}
+.drop small{display:block;font-weight:400;color:var(--mut);font-size:12px;margin-top:2px}
+.drop input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.savebar{position:sticky;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 8px);z-index:5;margin-top:14px}
+.savebar button{margin:0;box-shadow:0 8px 20px -8px rgba(22,163,74,.6)}
+
+/* Mehr: Übersicht und Unterseiten */
+.menu{padding:4px 0}
+.menu a{display:flex;align-items:center;gap:12px;padding:12px 16px;color:var(--fg);text-decoration:none;min-height:60px;border-top:1px solid var(--line)}
+.menu a:first-child{border-top:0}
+.menu .mi{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex:0 0 auto;background:var(--chip)}
+.menu .mt{flex:1;min-width:0}
+.menu .mt b{display:block;font-size:16px}
+.menu .mt span{display:block;font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu .chev{color:var(--mut);font-size:22px;line-height:1}
+
+/* Schalter statt "aktiv" + Knopf "Ausschalten" */
+button.sw{width:52px;height:32px;min-height:32px;padding:0;border-radius:999px;background:var(--fieldline);position:relative;flex:0 0 auto;margin:0;transition:background .2s}
+button.sw::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(2,6,23,.3);transition:transform .2s}
+button.sw.on{background:var(--acc)}
+button.sw.on::after{transform:translateX(20px)}
+button.sw:active{background:var(--fieldline)}
+button.sw.on:active{background:var(--accd)}
+
+/* Navigation */
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:color-mix(in srgb,var(--card) 92%,transparent);
+  -webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:9}
+nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 8px;min-height:var(--navh);
+  color:var(--mut);text-decoration:none;font-size:11px;font-weight:600}
+nav a .ico{display:grid;place-items:center;width:52px;height:30px;border-radius:999px;transition:background .15s}
+nav a svg{width:22px;height:22px}
+nav a.on{color:var(--acc)}
+nav a.on .ico{background:var(--accsoft)}
+nav a.plus .ico{width:46px;height:46px;margin-top:-16px;border-radius:50%;background:var(--acc);color:#fff;
+  box-shadow:0 6px 16px -4px rgba(22,163,74,.6);border:3px solid var(--bg)}
+nav a.plus.on .ico{background:var(--accd)}
+nav a.plus svg{width:24px;height:24px}
+
 #backdrop{position:fixed;inset:0;background:rgba(2,6,23,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:29}
 #backdrop.on{opacity:1;pointer-events:auto}
-#install,.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;
-  padding:20px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(2,6,23,.25);transform:translateY(115%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+#install,.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);border-radius:22px 22px 0 0;
+  padding:22px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(2,6,23,.25);transform:translateY(115%);
+  transition:transform .32s cubic-bezier(.2,.8,.2,1);max-width:620px;margin:0 auto;max-height:88vh;overflow:auto}
+#install::before,.sheet::before{content:"";position:absolute;top:8px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
 #install.on,.sheet.on{transform:none}
 .sheet h3{margin:0 0 8px;font-size:17px}
 .sheet p,.sheet li{font-size:14px;line-height:1.55;color:var(--mut);margin:7px 0}
 .sheet b{color:var(--t)}
 .sheet ul{margin:8px 0;padding-left:18px}
-button.i{width:22px;height:22px;padding:0;border-radius:50%;background:var(--chip);color:var(--mut);font-size:12px;font-weight:700;line-height:22px;flex:0 0 auto;margin:0 0 0 6px;vertical-align:-4px}
+.actions button{display:flex;align-items:center;gap:12px;text-align:left;background:var(--chip);color:var(--fg);font-weight:600;border:0}
+.actions button.del{color:var(--bad)}
+.actions .sub{margin:-2px 0 10px}
+button.i{position:relative;width:22px;height:22px;min-height:22px;padding:0;border-radius:50%;background:var(--chip);color:var(--mut);font-size:12px;font-weight:700;line-height:22px;flex:0 0 auto;margin:0 0 0 2px;vertical-align:-4px}
+button.i::after{content:"";position:absolute;inset:-11px}
 .hero button.i{background:rgba(255,255,255,.25);color:#fff}
 #install .head{display:flex;gap:12px;align-items:center;margin-bottom:10px}
 #install img{width:52px;height:52px;border-radius:14px;flex:0 0 auto}
@@ -165,25 +259,33 @@ button.i{width:22px;height:22px;padding:0;border-radius:50%;background:var(--chi
 #install ol{margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.7}
 #install .arrow{text-align:center;font-size:26px;color:var(--acc);margin-top:10px;animation:bob 1.4s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom));background:#0b1220;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
-.toast.on{opacity:.95}
+.toast{position:fixed;left:50%;transform:translate(-50%,8px);bottom:calc(var(--navh) + 18px + env(safe-area-inset-bottom));background:#0b1220;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:35;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:.96;transform:translate(-50%,0)}
+.empty{text-align:center;padding:26px 18px}
+.empty .ic{font-size:38px;line-height:1;margin-bottom:6px}
+.empty b{display:block;font-size:17px;margin-bottom:4px}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
 </style>
 </head>
 <body>
 <main id="app"><div class="card">Lade…</div></main>
 <nav>
-  <a href="#home"><b>🔥</b>Start</a>
-  <a href="#feed"><b>📣</b>Feed</a>
-  <a href="#add"><b>➕</b>Eintrag</a>
-  <a href="#stats"><b>📊</b>Zahlen</a>
-  <a href="#set"><b>⚙️</b>Mehr</a>
+  <a href="#home"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></span>Start</a>
+  <a href="#feed"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg></span>Feed</a>
+  <a href="#add" class="plus"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Eintrag</a>
+  <a href="#stats"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 20v-8M12 20V5M18 20v-5M3 20h18"/></svg></span>Zahlen</a>
+  <a href="#set"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></span>Mehr</a>
 </nav>
 <div class="toast" id="toast"></div>
 <div id="tip"></div>
-<div id="backdrop" onclick="laterInstall(false);hideInfo();askClose(false)"></div>
+<div id="backdrop" onclick="laterInstall(false);hideInfo();askClose(false);closeSheet()"></div>
 <div id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle"></div>
 <div id="info" class="sheet" role="dialog" aria-modal="true"></div>
 <div id="ask" class="sheet" role="alertdialog" aria-modal="true"></div>
+<div id="form" class="sheet" role="dialog" aria-modal="true"></div>
 <script>
 /* ---------- Basis ---------- */
 const $ = s => document.querySelector(s);
@@ -273,6 +375,19 @@ const INFOS = () => { const S = (D && D.settings) || {}; return {
        das holt sie beim nächsten Mal wieder rein.</p>
     <p>Die große Zahl oben ist, was insgesamt zusammengekommen und noch nicht
        ausgegeben ist. So viel könnt ihr also noch verplanen.</p>`],
+  rangliste: ["So liest sich die Rangliste", `
+    <p>Die Medaillen gehen nach <b>erfolgreich abgeschlossenen Wochen</b> – unabhängig davon,
+       wonach die Tabelle gerade sortiert ist.</p>
+    <p>Ein Tipp auf eine Spaltenüberschrift sortiert danach, ein zweiter Tipp dreht die Reihenfolge um.</p>
+    <p>\u{1F525} ist die aktuelle Serie, <b>Rekord</b> die längste.${S.bonus
+      ? ` ✨ ist das Guthaben; ${S.bonusCost} davon decken eine fehlende Einheit.` : ""}</p>`],
+  woche: ["So liest sich die Wochenübersicht", `
+    <p>Die drei kleinen Felder sind die Wochen davor, die Zahl darin die Einheiten.</p>
+    <ul><li><b>gefüllt</b>: Ziel geschafft</li>
+        <li><b>gestrichelt rot</b>: Ziel verpasst</li>
+        <li><b>blass</b>: zählte für diese Person noch nicht</li></ul>
+    <p>Rechts steht die laufende Woche mit Fortschrittsbalken, daneben die Serie. 🤒 markiert eine Krankmeldung.</p>
+    <p>Wer das Ziel verpasst, zahlt ${D ? money(S.fine, S.currency) : "den eingestellten Betrag"} in die Kasse.</p>`],
   anstupser: ["Wann die App sich meldet", `
     <p>Nur wenn du hinterherhinkst, und höchstens einmal je Gelegenheit:</p>
     <ul><li><b>Mitte der Woche</b>, wenn noch gar nichts steht – mal mittwochs, mal donnerstags,
@@ -319,6 +434,23 @@ function showInfo(key) {
 function hideInfo() {
   document.getElementById("info").classList.remove("on");
   document.getElementById("backdrop").classList.remove("on");
+}
+// Eigenes Fenster von unten fuer Menues und kurze Formulare - wie #info,
+// nur mit beliebigem Inhalt.
+function openSheet(html) {
+  const box = document.getElementById("form");
+  clearTimeout(closeSheet.t);
+  box.innerHTML = html;
+  box.classList.add("on");
+  document.getElementById("backdrop").classList.add("on");
+}
+function closeSheet() {
+  const box = document.getElementById("form");
+  if (!box.classList.contains("on")) return;
+  box.classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on");
+  // Inhalt nach dem Wegschieben leeren, damit keine Felder doppelt im Dokument stehen
+  closeSheet.t = setTimeout(() => { if (!box.classList.contains("on")) box.innerHTML = ""; }, 350);
 }
 const infoBtn = key => `<button class="i" title="Erklärung" onclick="showInfo('${key}')">i</button>`;
 const fmtCredits = n => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
@@ -434,6 +566,7 @@ function weeksOf(member) {
 /* Die Abrechnung (Strafen, Serie, Guthaben) rechnet der Worker - siehe stats.js. */
 
 /* ---------- Start ---------- */
+let kasseOpen = false;
 function viewHome() {
   const s = D.settings, c = s.currency, cur = weekOf(todayISO());
   if (!D.members.length) return onboarding();
@@ -442,7 +575,7 @@ function viewHome() {
   const ausgegeben = D.expenses.reduce((a, x) => a + x.amount, 0);
   const kasse = angesammelt - ausgegeben;
   const ohnePerson = D.expenses.filter(x => !x.member_id).reduce((a, x) => a + x.amount, 0);
-  const w4 = [3, 2, 1, 0].map(i => addW(cur, -i));
+  const prev = [3, 2, 1].map(i => addW(cur, -i));
   // Medaillen gehen immer nach geschafften Wochen - unabhängig davon, wonach
   // gerade sortiert ist.
   const rang = new Map([...D.members]
@@ -460,37 +593,41 @@ function viewHome() {
   });
   const th = (key, label, titel) =>
     `<th class="sortable${boardSort.key === key ? " on" : ""}" title="${titel}" onclick="sortBoard('${key}')">${label}${
-      boardSort.key === key ? (boardSort.dir === 1 ? " \u2193" : " \u2191") : ""}</th>`;
+      boardSort.key === key ? (boardSort.dir === 1 ? " ↓" : " ↑") : ""}</th>`;
 
   const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
-    <div class="seg" style="flex-wrap:wrap">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
+    <div class="seg who">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
 
-  return whoCard + hero(st) + installNudge() + pushNudge() + `
-  <div class="card"><h2>Diese Woche · ab ${dm(cur)} · Ziel ${s.required}</h2><table>
-    ${D.members.map(m => {
-      const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
-      return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}
-        <div class="bar"><i style="width:${Math.min(100, cr / s.required * 100)}%"></i></div></td>
-        <td class="${ok ? "ok" : ""}">${d}${k ? " +" + k + "🤒" : ""} / ${s.required} ${ok ? "✓" : ""}</td>
-        <td>${st[m.id]?.streak ? "🔥 " + st[m.id].streak : "–"}</td></tr>`;
-    }).join("")}
-  </table><div class="hint">Wer das Ziel verpasst, zahlt ${money(s.fine, c)} in die Kasse.</div></div>
+  // Eine Zeile je Person: die drei Wochen davor als Felder, dann die laufende Woche.
+  const feld = (m, w) => {
+    const cr = credit(m.id, w), counts = weeksOf(m).includes(w);
+    const n = done(m.id, w) + (sick(m.id, w) ? "🤒" : "");
+    if (!counts) return `<span class="cell na" title="Woche ab ${dm(w)}: zählte noch nicht">–</span>`;
+    return cr >= s.required
+      ? `<span class="cell ok" title="Woche ab ${dm(w)}: geschafft">${n}</span>`
+      : `<span class="cell miss" title="Woche ab ${dm(w)}: verpasst">${n}</span>`;
+  };
+  const woche = `<div class="card"><h2>Diese Woche <small>ab ${dm(cur)} · Ziel ${s.required}</small>${infoBtn("woche")}</h2>
+    <table class="wk">
+      <tr><th></th>${prev.map(w => `<th>${dm(w).slice(0, 3)}</th>`).join("")}<th>jetzt</th><th>\u{1F525}</th></tr>
+      ${D.members.map(m => {
+        const d = done(m.id, cur), k = sick(m.id, cur), cr = credit(m.id, cur), ok = cr >= s.required;
+        return `<tr><td class="nm">${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}
+          <div class="bar"><i style="width:${Math.min(100, cr / s.required * 100)}%"></i></div></td>
+          ${prev.map(w => `<td>${feld(m, w)}</td>`).join("")}
+          <td class="now ${ok ? "ok" : ""}">${d}${k ? " +" + k + "🤒" : ""} / ${s.required}${ok ? " ✓" : ""}</td>
+          <td>${st[m.id]?.streak || "–"}</td></tr>`;
+      }).join("")}
+    </table>
+    <div class="legend-cells"><span><span class="cell ok">✓</span>geschafft</span>
+      <span><span class="cell miss">✕</span>verpasst</span></div></div>`;
 
-  <div class="card"><h2>Letzte 4 Wochen</h2><table>
-    <tr><th></th>${w4.map(w => `<th>${dm(w)}${w === cur ? "*" : ""}</th>`).join("")}</tr>
-    ${D.members.map(m => `<tr><td>${esc(m.name)}</td>${w4.map(w => {
-      const cr = credit(m.id, w), counts = weeksOf(m).includes(w) || w === cur;
-      const cls = !counts ? "sub" : cr >= s.required ? "ok" : w === cur ? "warn" : "bad";
-      return `<td class="${cls}">${counts ? done(m.id, w) + (sick(m.id, w) ? "🤒" : "") : "–"}</td>`;
-    }).join("")}</tr>`).join("")}
-  </table><div class="hint">* laufende Woche</div></div>
-
-  <div class="card"><h2>Rangliste</h2><table>
+  const rangliste = `<div class="card"><h2>Rangliste${infoBtn("rangliste")}</h2><table>
     <tr><th></th>${th("weeksDone", "Wochen", "erfolgreich abgeschlossene Wochen")}
       ${th("sessions", "Einheiten", "Einheiten insgesamt")}
       ${th("streak", "\u{1F525}", "aktuelle Serie")}
-      ${th("bestStreak", "Rekord", "l\u00e4ngste Serie")}
-      ${s.bonus ? "<th>\u2728</th>" : ""}</tr>
+      ${th("bestStreak", "Rekord", "längste Serie")}
+      ${s.bonus ? "<th>✨</th>" : ""}</tr>
     ${board.map(m => {
       const b = st[m.id], i = rang.get(m.id);
       return `<tr><td>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(m.name)}</td>
@@ -498,33 +635,40 @@ function viewHome() {
         <td>${b.sessions}</td><td>${b.streak || "–"}</td><td>${b.bestStreak || "–"}</td>
         ${s.bonus ? `<td class="nw">${fmtCredits(b.credits)}</td>` : ""}</tr>`;
     }).join("")}
-  </table><div class="hint">Medaillen gehen nach erfolgreich abgeschlossenen Wochen. Tipp auf eine
-    Überschrift sortiert danach.${s.bonus ? ` ✨ ist das Guthaben; ${s.bonusCost} davon decken eine fehlende Einheit.` : ""}</div></div>
+  </table></div>`;
 
-  <div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
-    <div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div>
-    <div class="sub">${kasse >= 0
-      ? "angesammelt und noch nicht ausgegeben"
-      : "mehr ausgegeben als angesammelt"} · ${money(angesammelt, c)} angesammelt, ${money(ausgegeben, c)} ausgegeben</div>
-    <table style="margin-top:12px">
-      <tr><th></th><th>Angesammelt</th><th>Gezahlt</th><th>Saldo</th></tr>
-      ${D.members.map(m => {
-        const b = st[m.id];
-        return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}</td>
-          <td class="nw">${plain(b.owed)}</td><td class="nw">${plain(b.settled)}</td>
-          <td class="nw ${b.balance < -0.004 ? "bad" : b.balance > 0.004 ? "ok" : "sub"}">${
-            b.balance > 0.004 ? "+" : ""}${plain(b.balance)}</td></tr>`;
-      }).join("")}
-      ${ohnePerson ? `<tr><td class="sub">ohne Person</td><td class="sub">–</td><td class="nw">${plain(ohnePerson)}</td><td class="sub">–</td></tr>` : ""}
-    </table>
-    <div class="hint">Alle Beträge in ${esc(c)}. Niemand zahlt vorher ein. Wer etwas für die Gruppe bezahlt, bucht es in den
-      Einstellungen auf sich – und begleicht damit seine Schulden. Ein Plus heißt: mehr ausgelegt als fällig war.</div>
+  const saldo = b => `${b.balance > 0.004 ? "+" : ""}${plain(b.balance)}`;
+  const meinSaldo = me && st[me]
+    ? `<div class="mine"><span>Dein Saldo</span><b class="${st[me].balance < -0.004 ? "bad" : st[me].balance > 0.004 ? "ok" : ""}">${
+        saldo(st[me])} ${esc(c)}</b></div>` : "";
+  const kasseKarte = `<div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
+    <div class="flex" style="align-items:flex-end">
+      <div><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div>
+        <div class="sub">${kasse >= 0 ? "noch zu verplanen" : "mehr ausgegeben als angesammelt"}</div></div>
+      <button class="s" onclick="expenseSheet()">Ausgabe buchen</button></div>
+    ${meinSaldo}
+    <details class="more" ${kasseOpen ? "open" : ""} ontoggle="kasseOpen=this.open">
+      <summary>Alle Personen</summary>
+      <table style="margin-top:6px">
+        <tr><th></th><th>Angesammelt</th><th>Gezahlt</th><th>Saldo</th></tr>
+        ${D.members.map(m => {
+          const b = st[m.id];
+          return `<tr><td>${esc(m.name)}${m.id === me ? ' <span class="chip">du</span>' : ""}</td>
+            <td class="nw">${plain(b.owed)}</td><td class="nw">${plain(b.settled)}</td>
+            <td class="nw ${b.balance < -0.004 ? "bad" : b.balance > 0.004 ? "ok" : "sub"}">${saldo(b)}</td></tr>`;
+        }).join("")}
+        ${ohnePerson ? `<tr><td class="sub">ohne Person</td><td class="sub">–</td><td class="nw">${plain(ohnePerson)}</td><td class="sub">–</td></tr>` : ""}
+      </table>
+      <div class="hint">${money(angesammelt, c)} angesammelt, ${money(ausgegeben, c)} ausgegeben. Minus heißt: schuldet der Gruppe noch etwas.</div>
+    </details>
   </div>`;
+
+  return whoCard + hero(st) + installNudge() + pushNudge() + woche + rangliste + kasseKarte;
 }
 
 // Oben steht, was antreibt: die eigene Serie und was diese Woche noch fehlt.
 function hero(st) {
-  const s = D.settings, cur = weekOf(todayISO());
+  const s = D.settings;
   if (!me) return "";
   const mine = st[me];
   if (!mine) return "";
@@ -549,31 +693,36 @@ function hero(st) {
     <div class="sub">${line}</div>${bonus}</div>`;
 }
 
+// Hinweise lassen sich fuer eine Woche wegtippen - nur die Anzeige, sonst nichts.
+const snoozed = key => { try { return Date.now() - (+localStorage["hide_" + key] || 0) < 7 * 864e5; } catch { return false; } };
+function snooze(key) { try { localStorage["hide_" + key] = Date.now(); } catch {} render(); }
+const closeX = key => `<button class="x" title="Ausblenden" aria-label="Ausblenden" onclick="snooze('${key}')">✕</button>`;
+
 // Steht da, solange die App im Browser statt vom Home-Bildschirm läuft.
 function installNudge() {
-  if (installed() || !("serviceWorker" in navigator)) return "";
-  return `<div class="card nudge"><div class="ic">\u{1F4F2}</div><div class="tx"><b>Auf den Home-Bildschirm</b>
-    <div class="sub">Als App geöffnet startet sie schneller – und nur so kommen auf dem iPhone Benachrichtigungen an.</div></div>
-    <button class="s" onclick="showInstall(true)">Installieren</button></div>`;
+  if (installed() || !("serviceWorker" in navigator) || snoozed("install")) return "";
+  return `<div class="nudge"><div class="ic">\u{1F4F2}</div><div class="tx"><b>Auf den Home-Bildschirm</b>
+    <div class="sub">Startet schneller, auf dem iPhone nur so mit Benachrichtigungen.</div></div>
+    <button class="s" onclick="showInstall(true)">Installieren</button>${closeX("install")}</div>`;
 }
 
 // Bleibt stehen, bis Push auf diesem Gerät läuft.
 function pushNudge() {
-  if (localStorage.pushOn === "1") return "";
+  if (localStorage.pushOn === "1" || snoozed("push")) return "";
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "";
   if (!D.vapidPublicKey) return "";
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   if (Notification.permission === "denied")
-    return `<div class="card nudge"><div class="ic">🔕</div><div class="tx"><b>Benachrichtigungen blockiert</b>
-      <div class="sub">In den Einstellungen deines Browsers für diese Seite wieder erlauben.</div></div></div>`;
+    return `<div class="nudge"><div class="ic">🔕</div><div class="tx"><b>Benachrichtigungen blockiert</b>
+      <div class="sub">In den Browser-Einstellungen für diese Seite wieder erlauben.</div></div>${closeX("push")}</div>`;
   if (ios && !standalone)
-    return `<div class="card nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen</b>
+    return `<div class="nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen</b>
       <div class="sub">Dafür die App erst zum Home-Bildschirm hinzufügen.</div></div>
-      <button class="s" onclick="showInstall(true)">Wie?</button></div>`;
-  return `<div class="card nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen einschalten</b>
-    <div class="sub">Sonst verpasst du, wenn jemand eine Einheit einträgt.</div></div>
-    <button class="s" onclick="togglePush()">Einschalten</button></div>`;
+      <button class="s" onclick="showInstall(true)">Wie?</button>${closeX("push")}</div>`;
+  return `<div class="nudge"><div class="ic">🔔</div><div class="tx"><b>Benachrichtigungen einschalten</b>
+    <div class="sub">Sonst verpasst du, wenn jemand einträgt.</div></div>
+    <button class="s" onclick="togglePush()">Einschalten</button>${closeX("push")}</div>`;
 }
 
 /* ---------- Zahlen ---------- */
@@ -662,7 +811,7 @@ function viewStats() {
     <button class="${statsWho === "team" ? "on" : ""}" onclick="statsWho='team';render()">Team</button></div>`;
 
   const noMe = statsWho === "me" && !me
-    ? `<div class="card"><h2>Wer bist du?</h2><div class="sub">Oben auf der Startseite einmal auswählen, dann stehen hier deine Zahlen.</div></div>`
+    ? `<div class="card"><h2>Wer bist du?</h2><div class="sub">Unter Mehr → Ich und dieses Gerät oder auf der Startseite einmal auswählen, dann stehen hier deine Zahlen.</div></div>`
     : "";
 
   const tiles = `<div class="card"><h2>${esc(title)} · seit ${d.first ? dm(d.first) : "Beginn"}</h2>
@@ -726,7 +875,7 @@ function viewStats() {
 }
 
 /* ---------- Feed ---------- */
-let filterOpen = false, feedFilter = { member: 0, sport: "" };
+let filterOpen = false, feedFilter = { member: 0, sport: "" }, feedDays = 14;
 
 const setFilter = (key, value) => { feedFilter[key] = value; render(); };
 const clearFilter = () => { feedFilter = { member: 0, sport: "" }; filterOpen = false; render(); };
@@ -735,9 +884,8 @@ const filterActive = () => !!(feedFilter.member || feedFilter.sport);
 // Die Leiste bleibt eine schmale Zeile, bis jemand sie aufklappt.
 function filterBar(sportsInFeed) {
   if (!filterOpen && !filterActive())
-    return `<div style="text-align:right;margin:-4px 0 10px">
-      <button class="s" style="background:transparent;border:0;color:var(--mut);padding:4px 2px"
-        onclick="filterOpen=true;render()">⌕ Filtern</button></div>`;
+    return `<div class="feedbar">${planOpen ? "<span></span>" : `<button class="pl" onclick="planOpen=true;render()">\u{1F4C5} Gemeinsame Einheit vorschlagen</button>`}
+      <button onclick="filterOpen=true;render()">⌕ Filtern</button></div>`;
 
   const mine = feedFilter.member;
   return `<div class="card" style="padding:12px 14px">
@@ -759,8 +907,9 @@ function viewFeed() {
   if (!D.members.length) return onboarding();
   const nameOf = id => D.members.find(m => m.id === id)?.name || "?";
   if (!D.entries.length && !(D.plans || []).length && !(D.events || []).length && !filterActive())
-    return planCards() + `<div class="card"><h2>Feed</h2><div class="sub">Noch nichts passiert. Mach den Anfang.</div>
-      <button onclick="location.hash='#add'">Einheit eintragen</button></div>`;
+    return planCards() + filterBar([]) + `<div class="card empty"><div class="ic">\u{1F45F}</div><b>Noch ist es still hier</b>
+      <div class="sub">Wer als Erstes etwas einträgt, setzt den Ton für die Woche.</div>
+      <button onclick="location.hash='#add'">Erste Einheit eintragen</button></div>`;
 
   // Eintraege einer gemeinsamen Einheit zu einem Beitrag zusammenfassen
   const merged = [];
@@ -790,8 +939,14 @@ function viewFeed() {
     .filter(passt)
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id || 0) - (a.id || 0)));
 
+  // Erst die letzten Wochen zeichnen, Älteres auf Wunsch. Die Daten sind
+  // ohnehin alle da - es wird nur weniger auf einmal gezeigt.
+  const cutoff = (() => { const d = new Date(todayISO() + "T12:00:00"); d.setDate(d.getDate() - feedDays + 1);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); })();
+  const shown = filterActive() ? all : all.filter((e, i) => i < 10 || e.date >= cutoff);
+  const rest = all.length - shown.length;
   const days = [];
-  for (const e of all) {
+  for (const e of shown) {
     if (!days.length || days[days.length - 1].date !== e.date) days.push({ date: e.date, items: [] });
     days[days.length - 1].items.push(e);
   }
@@ -799,6 +954,7 @@ function viewFeed() {
     ? `<div class="card"><h2>Nichts gefunden</h2><div class="sub">Mit diesem Filter steht hier nichts.</div>
        <button class="ghost" onclick="clearFilter()">Filter aufheben</button></div>` : "";
 
+  const older = rest ? `<button class="ghost" onclick="feedDays+=14;render()">Ältere anzeigen (${rest})</button>` : "";
   return planCards() + filterBar(sportsInFeed) + leer + days.map(d => `<div class="day">${relDay(d.date)}</div>` + d.items.map(e => {
     if (e.isEvent) {
       const who = D.members.find(m => m.id === e.member_id);
@@ -809,23 +965,43 @@ function viewFeed() {
     const n = names.length > 1 ? names.slice(0, -1).join(", ") + " & " + names[names.length - 1] : names[0];
     const meta = e.meta ? Object.entries(JSON.parse(e.meta)) : [];
     return `<div class="post">
-      <div class="who"><div class="av">${names.length > 1 ? names.length : esc(names[0].slice(0, 1).toUpperCase())}</div>
-        <div style="flex:1"><b>${esc(n)}</b>${e.crew.includes(me) ? ' <span class="chip">du</span>' : ""}
+      <div class="who"><div class="av"${names.length > 1 ? "" : avatarStyle(e.crew[0])}>${names.length > 1 ? names.length : esc(names[0].slice(0, 1).toUpperCase())}</div>
+        <div style="flex:1;min-width:0"><b>${esc(n)}</b>${e.crew.includes(me) ? ' <span class="chip">du</span>' : ""}
           ${names.length > 1 ? '<div class="sub">zusammen unterwegs</div>' : ""}</div>
-        <button class="x" onclick="editEntry(${e.id})" title="Ändern">✎</button>
-        <button class="x" onclick="delEntry(${e.id})" title="Löschen">✕</button></div>
+        <button class="x more-btn" onclick="postMenu(${e.id})" title="Aktionen" aria-label="Aktionen">\u22EF</button></div>
       <div class="act">${e.kind === "sick"
         ? "🤒 Krankmeldung (" + (e.units || 1) + " " + ((e.units || 1) === 1 ? "Einheit" : "Einheiten") + ")"
         : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
       ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
       ${meta.length ? `<div style="margin-top:4px">${meta.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("")}</div>` : ""}
-      ${e.hasPhoto
-        ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">
-           <button class="s" style="margin-top:6px" onclick="pickPhoto(${e.photoId || e.id})">Foto tauschen</button>`
-        : e.kind === "sick" ? ""
-        : `<button class="s" style="margin-top:8px" onclick="pickPhoto(${e.id})">📷 Foto hinzufügen</button>`}
+      ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">` : ""}
     </div>`;
-  }).join("")).join("");
+  }).join("")).join("") + older;
+}
+
+// Feste Farbe je Person - dieselbe Reihenfolge wie in den Diagrammen.
+// Ab neun Personen bleibt es beim Grün, statt Farben doppelt zu vergeben.
+const AV_TEXT = ["#fff", "#0b1220", "#0b1220", "#0b1220", "#0b1220", "#fff", "#fff", "#0b1220"];
+function avatarStyle(memberId) {
+  const i = D.members.findIndex(m => m.id === memberId);
+  if (i < 0 || D.members.length > 8) return "";
+  return ` style="background:${seriesColor(i)};color:${AV_TEXT[i]}"`;
+}
+
+// Ändern, Foto und Löschen hinter einem Knopf - nicht mehr offen an jedem Beitrag.
+function postMenu(id) {
+  const e = D.entries.find(x => x.id === id);
+  if (!e) return toast("Eintrag nicht gefunden.");
+  // Das Foto haengt bei gemeinsamen Einheiten am Eintrag des Eintragenden.
+  const crew = e.group_id ? D.entries.filter(x => x.group_id === e.group_id) : [e];
+  const withPhoto = crew.find(x => x.hasPhoto);
+  const photoId = withPhoto ? withPhoto.id : e.id;
+  const was = e.kind === "sick" ? "Krankmeldung" : (e.sport || "Sporteinheit");
+  openSheet(`<div class="actions"><h3>${esc(was)}</h3><div class="sub">${relDay(e.date)}</div>
+    <button onclick="closeSheet();editEntry(${id})">✎ Ändern</button>
+    ${e.kind === "sick" ? "" : `<button onclick="closeSheet();pickPhoto(${photoId})">📷 ${withPhoto ? "Foto tauschen" : "Foto hinzufügen"}</button>`}
+    <button class="del" onclick="closeSheet();delEntry(${id})">✕ Löschen</button>
+    <button class="ghost" style="justify-content:center" onclick="closeSheet()">Abbrechen</button></div>`);
 }
 
 function onboarding() {
@@ -873,14 +1049,13 @@ function planCards() {
         ${inIt ? "Doch nicht" : "Bin dabei"}</button>` : ""}</div>`;
   }).join("");
 
-  const opener = planOpen ? "" :
-    `<button class="ghost" style="margin-bottom:12px" onclick="planOpen=true;render()">\u{1F4C5} Gemeinsame Einheit vorschlagen</button>`;
-  return opener + form + list;
+  // Der Knopf zum Vorschlagen steht in der Leiste darunter (filterBar).
+  return form + list;
 }
 
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
 const savePlan = guard(async () => {
-  if (!me) return toast("Erst oben auswählen, wer du bist.");
+  if (!me) return toast("Erst auswählen, wer du bist (Mehr → Ich und dieses Gerät).");
   const date = $("#pDate").value || todayISO();
   await api("plan", "POST", {
     member_id: me, sport: normSport($("#pSport").value), date,
@@ -953,33 +1128,60 @@ function viewAdd() {
   const s = D.settings;
   const e = editId ? D.entries.find(x => x.id === editId) : null;
   if (editId && !e) editId = null;
-  return `<div class="card"><h2>${e ? "Eintrag ändern" : "Neuer Eintrag"}</h2>
-    <label>Für wen?</label>
+  const gestern = (() => { const d = new Date(todayISO() + "T12:00:00"); d.setDate(d.getDate() - 1);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); })();
+  // Die eigenen drei häufigsten Sportarten als Abkürzung - die Liste bleibt.
+  const oft = (() => {
+    const who = e ? e.member_id : me;
+    const n = new Map();
+    for (const x of D.entries) if (x.member_id === who && x.kind !== "sick" && x.sport) n.set(x.sport, (n.get(x.sport) || 0) + 1);
+    return [...n].sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+  })();
+  return `<div class="card">
+    <div class="for"><label for="who">Für</label>
     <select id="who"${e ? " disabled" : ""}>${D.members.map(m =>
-      `<option value="${m.id}"${m.id === (e ? e.member_id : me) ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
-    <label>Was?</label>
-    <div class="seg"><button id="k-workout" class="on" onclick="setKind('workout')">🏃 Sporteinheit</button><button id="k-sick" onclick="setKind('sick')">🤒 Krank</button></div>
-    <div id="sportBox"><label>Welche Sportart?</label>
+      `<option value="${m.id}"${m.id === (e ? e.member_id : me) ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></div>
+    <div class="seg" style="margin-top:12px"><button id="k-workout" class="on" onclick="setKind('workout')">🏃 Sporteinheit</button><button id="k-sick" onclick="setKind('sick')">🤒 Krank</button></div>
+    <div id="sportBox"><label for="sport">Welche Sportart?</label>
+      ${oft.length ? `<div class="picks">${oft.map(x =>
+        `<button type="button" data-pick="${esc(x)}" onclick="pickSport(this.dataset.pick)">${sportIcon(x)} ${esc(x)}</button>`).join("")}</div>` : ""}
       <input id="sport" list="sportList" autocomplete="off" placeholder="tippen oder aus der Liste wählen"
         value="${esc(e ? (e.sport || "") : (localStorage.lastSport || ""))}">
       <datalist id="sportList">${SPORTS.map(x => `<option value="${esc(x[0])}">`).join("")}</datalist></div>
-    <div id="unitsBox" style="display:none"><label>Krankmeldung zählt als … Einheiten dieser Woche</label>
+    <div id="unitsBox" style="display:none"><label for="units">Krankmeldung zählt als … Einheiten dieser Woche</label>
       <select id="units">${Array.from({ length: Math.max(1, s.required) }, (_, i) => `<option value="${i + 1}"${i + 1 === Math.max(1, s.required) ? " selected" : ""}>${i + 1}</option>`).join("")}</select></div>
-    <div id="crewBox">${e ? "" : D.members.length > 1 ? `<label>Wer war noch dabei? (optional)</label>
+    <div id="crewBox">${e ? "" : D.members.length > 1 ? `<label>Wer war noch dabei? <span style="font-weight:400">(optional)</span></label>
       <div class="who-pick">${D.members.map(m => `<button type="button" data-crew="${m.id}" onclick="toggleCrew(${m.id})">${esc(m.name)}</button>`).join("")}</div>
       <div class="hint">Einer trägt ein, alle bekommen die Einheit gutgeschrieben.</div>` : ""}</div>
-    <label>Datum</label><input type="date" id="date" value="${e ? esc(e.date) : todayISO()}" max="${todayISO()}">
-    <label>Kommentar (optional)</label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker">${e ? esc(e.note || "") : ""}</textarea>
-    ${e ? "" : `<label>Foto oder Aktivitätsdatei (optional)</label>
-    <input type="file" id="file" accept="image/*,.gpx,.tcx" onchange="preview()">
+    <label for="date">Wann?</label>
+    <div class="picks"><button type="button" data-day="${todayISO()}" onclick="pickDay(this.dataset.day)">Heute</button>
+      <button type="button" data-day="${gestern}" onclick="pickDay(this.dataset.day)">Gestern</button></div>
+    <input type="date" id="date" value="${e ? esc(e.date) : todayISO()}" max="${todayISO()}">
+    <label for="note">Kommentar <span style="font-weight:400">(optional)</span></label><textarea id="note" placeholder="z. B. 8 km Laufen am Kanal, locker">${e ? esc(e.note || "") : ""}</textarea>
+    ${e ? "" : `<label>Foto oder Aktivitätsdatei <span style="font-weight:400">(optional)</span></label>
+    <div class="drop"><span class="ic">\u{1F4CE}</span><span>Foto, GPX oder TCX hinzufügen
+      <small>GPX/TCX aus Strava, Garmin oder Komoot: Aktivität → Exportieren. Distanz, Dauer und Tempo werden übernommen.</small></span>
+      <input type="file" id="file" accept="image/*,.gpx,.tcx" onchange="preview()" aria-label="Foto oder Aktivitätsdatei wählen"></div>
     <div id="prev" class="sub"></div>`}
-    <button id="saveBtn" onclick="save()"${busy ? " disabled" : ""}>${
-      busy ? "Speichere…" : e ? "Änderungen speichern" : "Speichern"}</button>
+    <div class="savebar"><button id="saveBtn" onclick="save()"${busy ? " disabled" : ""}>${
+      busy ? "Speichere…" : e ? "Änderungen speichern" : "Speichern"}</button></div>
     ${e ? `<button class="ghost" onclick="cancelEdit()">Abbrechen</button>
       <button class="ghost" style="color:var(--bad)" onclick="delEntry(${e.id})">Eintrag löschen</button>
       ${e.group_id ? '<div class="hint">Das war eine gemeinsame Einheit – die Änderung gilt für alle, die dabei waren.</div>' : ""}` : ""}
-    <div class="hint">GPX/TCX aus Strava, Garmin oder Komoot: Aktivität → Exportieren. Distanz, Dauer &amp; Tempo werden automatisch übernommen.</div>
   </div>`;
+}
+// Abkürzungen: setzen nur das Feld, wie es auch Tippen täte.
+function pickSport(name) {
+  const f = $("#sport"); if (!f) return;
+  f.value = name;
+  resyncMeta();
+  paintPicks();
+}
+function pickDay(iso) { const f = $("#date"); if (f) { f.value = iso; paintPicks(); } }
+function paintPicks() {
+  const sp = $("#sport")?.value, d = $("#date")?.value;
+  document.querySelectorAll("[data-pick]").forEach(b => b.classList.toggle("on", b.dataset.pick === sp));
+  document.querySelectorAll("[data-day]").forEach(b => b.classList.toggle("on", b.dataset.day === d));
 }
 let kind = "workout", crew = [];
 function toggleCrew(id) {
@@ -1195,37 +1397,58 @@ async function save() {
 }
 
 /* ---------- Einstellungen ---------- */
+// Ein Schalter, der zeigt, was gerade gilt - dahinter dieselbe Funktion wie vorher.
+const sw = (on, fn, label) =>
+  `<button class="sw${on ? " on" : ""}" role="switch" aria-checked="${on}" aria-label="${label}" title="${on ? "Ausschalten" : "Einschalten"}" onclick="${fn}"></button>`;
+
+// Mehr: eine Übersicht mit vier Bereichen, jeder mit seinem Stand.
 function viewSet() {
+  const s = D.settings, st = D.stats || {};
+  const meName = D.members.find(m => m.id === me)?.name;
+  const kasse = D.members.reduce((a, m) => a + (st[m.id]?.owed || 0), 0) - D.expenses.reduce((a, x) => a + x.amount, 0);
+  const row = (hash, icon, title, state) => `<a href="#${hash}"><span class="mi">${icon}</span>
+    <span class="mt"><b>${title}</b><span>${state}</span></span><span class="chev">›</span></a>`;
+  return `<div class="card menu">
+    ${row("set/ich", "\u{1F464}", "Ich und dieses Gerät",
+      `${meName ? esc(meName) : "noch niemand gewählt"} · Push ${localStorage.pushOn === "1" ? "an" : "aus"}${
+        (D.links || []).some(l => l.member_id === me) ? " · automatisch" : ""}`)}
+    ${row("set/kasse", "\u{1F4B6}", "Kasse",
+      `${money(kasse, s.currency)} · ${D.expenses.length} ${D.expenses.length === 1 ? "Buchung" : "Buchungen"}`)}
+    ${row("set/gruppe", "\u{1F465}", "Gruppe und Regeln",
+      `${D.members.length} Personen · ${s.required} pro Woche · ${money(s.fine, s.currency)}`)}
+    ${row("set/app", "\u{1F4F1}", "App", installed() ? "installiert" : "noch nicht installiert")}
+  </div>`;
+}
+
+function viewSetMe() {
   const s = D.settings;
   const pushState = localStorage.pushOn === "1";
   const canPush = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  return `<div class="card"><h2>Regeln</h2>
-    <label>Einheiten pro Woche</label><input id="req" type="number" min="1" max="21" value="${s.required}">
-    <label>Strafe pro verpasster Woche</label><input id="fine" type="number" min="0" step="0.5" value="${s.fine}">
-    <label>Währung</label><input id="cur" value="${esc(s.currency)}">
-    <label>Krankmeldung ersetzt höchstens … Einheiten pro Woche</label><input id="sickMax" type="number" min="0" max="21" value="${s.sickMax ?? s.required}">
-    <label>Start der Challenge</label><input id="start" type="date" value="${esc(s.start)}">
-    <button onclick="saveSettings()">Regeln speichern</button></div>
+  return `<div class="card"><h2>Dieses Gerät gehört zu</h2>
+    <select onchange="pickMe(+this.value)">
+      <option value="0"${!me ? " selected" : ""}>– bitte wählen –</option>
+      ${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+    <div class="hint">Damit ist der Eintrag immer schon richtig vorbelegt. Kein Profil, kein Login.</div></div>
 
   <div class="card"><h2>Benachrichtigungen</h2>
     ${!canPush ? '<div class="sub">Dieser Browser unterstützt keine Push-Benachrichtigungen.</div>'
       : !D.vapidPublicKey ? '<div class="sub">Auf dem Server sind keine VAPID-Keys hinterlegt.</div>'
       : `<div class="flex"><div><b>Push auf diesem Gerät</b><div class="sub">${pushState ? "aktiv" : "aus"}</div></div>
-         <button class="s" onclick="togglePush()">${pushState ? "Ausschalten" : "Einschalten"}</button></div>
+         ${sw(pushState, "togglePush()", "Push auf diesem Gerät")}</div>
          ${pushState ? '<button class="ghost" onclick="testPush()">Testbenachrichtigung senden</button>' : ""}
          ${ios && !standalone ? '<div class="hint">iPhone/iPad: Die App muss erst über „Teilen → Zum Home-Bildschirm" installiert und von dort geöffnet werden, sonst erlaubt iOS kein Push.</div>' : ""}
          <div class="hint">Du bekommst eine Nachricht, wenn jemand anderes einen Eintrag macht – nicht für deine eigenen Einträge von diesem Gerät.</div>`}
   </div>
 
   <div class="card"><h2>Automatisch eintragen</h2>
-    ${!me ? '<div class="sub">Wähle oben erst aus, wer du bist.</div>' : (() => {
+    ${!me ? '<div class="sub">Wähle erst aus, wer du bist.</div>' : (() => {
       const link = (D.links || []).find(l => l.member_id === me);
       if (link) return `<div class="flex"><div><b>Verbunden${link.name ? " als " + esc(link.name) : ""}</b>
         <div class="sub">${link.last_check ? "zuletzt nachgesehen: " + new Date(link.last_check).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nicht nachgesehen"}</div></div>
-        <button class="x" onclick="unlinkIcu()">✕</button></div>
+        <button class="x" title="Verbindung lösen" onclick="unlinkIcu()">✕</button></div>
         <button class="ghost" onclick="syncIcu()">Jetzt nachsehen</button>
         <div id="syncInfo" class="sub"></div>
         <div class="hint">Jede neue Einheit ab 20 Minuten wird stündlich abgeholt und hier eingetragen – du musst nichts mehr tun.</div>`;
@@ -1236,67 +1459,75 @@ function viewSet() {
           <li>Dort auf <b>Settings</b> gehen</li>
           <li>Ganz unten unter <b>Developer Settings</b> stehen <b>Athlete ID</b> und <b>API Key</b></li>
         </ol>
-        <label>Athlete ID</label><input id="icuId" placeholder="i123456" autocomplete="off">
-        <label>API Key</label><input id="icuKey" type="password" placeholder="wird nur hier gespeichert" autocomplete="off">
+        <label for="icuId">Athlete ID</label><input id="icuId" placeholder="i123456" autocomplete="off">
+        <label for="icuKey">API Key</label><input id="icuKey" type="password" placeholder="wird nur hier gespeichert" autocomplete="off">
         <button onclick="linkIcu()">Verbinden</button>
         <div class="hint">Der Schlüssel liegt nur in der Datenbank dieser App und wird nie angezeigt.
           Zum Lösen genügt ein Tipp aufs ✕.</div>`;
     })()}
   </div>
 
-  <div class="card"><h2>Motivation</h2>
-    <div class="flex"><div><b>Anstupser bei Rückstand${infoBtn("anstupser")}</b>
-      <div class="sub">${s.nudges ? "aktiv" : "aus"}</div></div>
-      <button class="s" onclick="toggleNudges()">${s.nudges ? "Ausschalten" : "Einschalten"}</button></div>
-    ${s.nudges ? `
-      <div class="flex" style="margin-top:12px"><div><b>Wetterhinweis</b>
-        <div class="sub">${me && D.members.find(m => m.id === me)?.hasGeo
-          ? "dein Standort" : "angenommen: " + esc(s.place)}</div></div>
-        <button class="s" onclick="useLocation()">Standort verwenden</button></div>
-      <div class="hint">Ohne Freigabe rechnet die App mit ${esc(s.place)}. Gibst du den Standort frei,
-        stimmt der Hinweis auch unterwegs – einmal reicht, grob genügt völlig. Regnet es, schlägt sie
-        etwas drinnen vor, und zwar das, was du ohnehin machst.</div>
-      <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
-      <div id="nudgePreview" class="sub"></div>` : ""}
-  </div>
+  ${s.nudges ? `<div class="card"><h2>Wetterhinweis</h2>
+    <div class="flex"><div><b>Standort</b>
+      <div class="sub">${me && D.members.find(m => m.id === me)?.hasGeo
+        ? "dein Standort" : "angenommen: " + esc(s.place)}</div></div>
+      <button class="s" onclick="useLocation()">Standort verwenden</button></div>
+    <div class="hint">Ohne Freigabe rechnet die App mit ${esc(s.place)}. Gibst du den Standort frei,
+      stimmt der Hinweis auch unterwegs – einmal reicht, grob genügt völlig.</div></div>` : ""}`;
+}
 
-  <div class="card"><h2>Dieses Gerät gehört zu</h2>
-    <select onchange="pickMe(+this.value)">
-      <option value="0"${!me ? " selected" : ""}>– bitte wählen –</option>
-      ${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
-    <div class="hint">Damit ist der Eintrag immer schon richtig vorbelegt. Kein Profil, kein Login.</div></div>
-
-  <div class="card"><h2>Teilnehmer</h2>
-    ${D.members.map(m => `<div class="row">
-      <input value="${esc(m.name)}" onchange="renameMember(${m.id}, this.value)">
-      <input type="date" value="${esc(m.joined || s.start)}" title="dabei seit" onchange="rejoinMember(${m.id}, this.value)">
-      <button class="x" onclick="delMember(${m.id})">✕</button></div>`).join("")}
-    <div class="row"><input id="nm" placeholder="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
-    <div class="hint">Das zweite Feld ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
-
-  <div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
-    <label>Wer hat etwas für die Gruppe bezahlt?</label>
+// Ausgabe buchen: dieselben Felder auf der Kassen-Seite und im Fenster von der Startseite.
+const expenseFields = () => `
+    <label for="ep">Wer hat etwas für die Gruppe bezahlt?</label>
     <select id="ep">
       ${D.members.map(m => `<option value="${m.id}"${m.id === me ? " selected" : ""}>${esc(m.name)}</option>`).join("")}
       <option value="0">niemand bestimmtes</option>
     </select>
-    <label>Wofür und wie viel?</label>
-    <div class="row"><input id="et" placeholder="z. B. Grillen"><input id="ea" type="number" step="0.01" placeholder="Betrag"></div>
+    <label for="et">Wofür und wie viel?</label>
+    <div class="row"><input id="et" placeholder="z. B. Grillen"><input id="ea" type="number" inputmode="decimal" step="0.01" placeholder="Betrag"></div>
     <button onclick="addExpense()">Buchen</button>
-    <div class="hint">Der Betrag wird dieser Person gutgeschrieben und begleicht ihre Schulden.</div>
-    ${D.expenses.map(x => {
+    <div class="hint">Der Betrag wird dieser Person gutgeschrieben und begleicht ihre Schulden.</div>`;
+function expenseSheet() {
+  openSheet(`<h3>Ausgabe buchen</h3>${expenseFields()}
+    <button class="ghost" onclick="closeSheet()">Abbrechen</button>`);
+}
+
+function viewSetKasse() {
+  const s = D.settings;
+  return `<div class="card"><h2>Ausgabe buchen${infoBtn("kasse")}</h2>${expenseFields()}</div>
+  <div class="card"><h2>Buchungen</h2>
+    ${D.expenses.length ? D.expenses.map(x => {
       const wer = D.members.find(m => m.id === x.member_id);
       return `<div class="item flex"><div>${dm(x.date)} · ${esc(x.title)} · <b>${money(x.amount, s.currency)}</b>
         <div class="sub">${wer ? "bezahlt von " + esc(wer.name) : "ohne Person"}</div></div>
-        <button class="x" onclick="delExpense(${x.id})">✕</button></div>`;
-    }).join("")}</div>
+        <button class="x" title="Ausgabe löschen" onclick="delExpense(${x.id})">✕</button></div>`;
+    }).join("") : '<div class="sub">Noch nichts gebucht. Wenn ihr grillt oder einen Ausflug macht, steht es hier.</div>'}</div>`;
+}
+
+function viewSetGroup() {
+  const s = D.settings;
+  return `<div class="card"><h2>Regeln</h2>
+    <label for="req">Einheiten pro Woche</label><input id="req" type="number" inputmode="numeric" min="1" max="21" value="${s.required}">
+    <label for="fine">Strafe pro verpasster Woche</label><input id="fine" type="number" inputmode="decimal" min="0" step="0.5" value="${s.fine}">
+    <label for="cur">Währung</label><input id="cur" value="${esc(s.currency)}">
+    <label for="sickMax">Krankmeldung ersetzt höchstens … Einheiten pro Woche</label><input id="sickMax" type="number" inputmode="numeric" min="0" max="21" value="${s.sickMax ?? s.required}">
+    <label for="start">Start der Challenge</label><input id="start" type="date" value="${esc(s.start)}">
+    <button onclick="saveSettings()">Regeln speichern</button></div>
+
+  <div class="card"><h2>Teilnehmer</h2>
+    ${D.members.map(m => `<div class="row">
+      <input value="${esc(m.name)}" aria-label="Name" onchange="renameMember(${m.id}, this.value)">
+      <input type="date" value="${esc(m.joined || s.start)}" title="dabei seit" aria-label="dabei seit" onchange="rejoinMember(${m.id}, this.value)">
+      <button class="x" title="Teilnehmer löschen" onclick="delMember(${m.id})">✕</button></div>`).join("")}
+    <div class="row"><input id="nm" placeholder="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
+    <div class="hint">Das zweite Feld ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
 
   <div class="card"><h2>Guthaben${infoBtn("guthaben")}</h2>
     <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
       <div class="sub">${s.bonus ? "aktiv" : "aus"}</div></div>
-      <button class="s" onclick="toggleBonus()">${s.bonus ? "Ausschalten" : "Einschalten"}</button></div>
+      ${sw(!!s.bonus, "toggleBonus()", "Guthaben sammeln")}</div>
     ${s.bonus ? `
-      <label>Was bringen Einheiten über dem Wochenziel?</label>
+      <label for="creditSteps">Was bringen Einheiten über dem Wochenziel?</label>
       <div class="row"><input id="creditSteps" value="${(s.creditSteps || []).map(x => String(x).replace(".", ",")).join("  ")}"
           placeholder="1  0,5  0,3" autocomplete="off">
         <button class="s" onclick="saveSteps()">Merken</button></div>
@@ -1306,12 +1537,12 @@ function viewSet() {
         (s.creditSteps || []).length > 2 ? `, die ${s.required + 3}. ${fmtCredits(s.creditSteps[2])}` : ""} –
         alles darüber nichts mehr.</div>
 
-      <label>Höchstens ansparen</label>
-      <div class="row"><input id="creditMax" type="number" min="1" max="99" step="0.5" value="${s.creditMax}">
+      <label for="creditMax">Höchstens ansparen</label>
+      <div class="row"><input id="creditMax" type="number" inputmode="decimal" min="1" max="99" step="0.5" value="${s.creditMax}">
         <button class="s" onclick="saveCreditMax()">Merken</button></div>
 
-      <label>Wie viele Guthaben decken eine fehlende Einheit?</label>
-      <div class="row"><input id="bonusCost" type="number" min="1" max="20" value="${s.bonusCost}">
+      <label for="bonusCost">Wie viele Guthaben decken eine fehlende Einheit?</label>
+      <div class="row"><input id="bonusCost" type="number" inputmode="numeric" min="1" max="20" value="${s.bonusCost}">
         <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
     <div class="hint">Guthaben entsteht nur aus Einheiten über dem Wochenziel. Fehlt später eine Einheit,
       springen ${s.bonusCost} davon ein, aber nie rückwirkend und nie für eine ganze Woche.
@@ -1320,7 +1551,21 @@ function viewSet() {
         : "Gesammelt wird ab dem Tag, an dem ihr sie einschaltet."}</div>
   </div>
 
-  <div class="card"><h2>App</h2>
+  <div class="card"><h2>Motivation</h2>
+    <div class="flex"><div><b>Anstupser bei Rückstand${infoBtn("anstupser")}</b>
+      <div class="sub">${s.nudges ? "aktiv" : "aus"}</div></div>
+      ${sw(!!s.nudges, "toggleNudges()", "Anstupser bei Rückstand")}</div>
+    ${s.nudges ? `
+      <div class="hint">Ohne freigegebenen Standort rechnet der Wetterhinweis mit ${esc(s.place)}; freigeben lässt er sich
+        unter <a href="#set/ich" style="color:var(--acc)">Ich und dieses Gerät</a>. Regnet es, schlägt die App
+        etwas drinnen vor, und zwar das, was du ohnehin machst.</div>
+      <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
+      <div id="nudgePreview" class="sub"></div>` : ""}
+  </div>`;
+}
+
+function viewSetApp() {
+  return `<div class="card"><h2>App</h2>
     <div class="flex"><div><b>Auf dem Home-Bildschirm</b><div class="sub">${installed() ? "installiert" : "noch nicht installiert"}</div></div>
       ${installed() ? "" : '<button class="s" onclick="showInstall(true)">Installieren</button>'}</div>
     <div class="sub" style="margin-top:10px">Gerät: ${esc(device.slice(0, 8))}</div>
@@ -1389,7 +1634,7 @@ const toggleNudges = guard(async () => {
 });
 // Grober Standort fürs Wetter. Einmal freigeben, danach merkt sich die App ihn.
 const useLocation = guard(async () => {
-  if (!me) return toast("Wähle oben erst aus, wer du bist.");
+  if (!me) return toast("Wähle erst aus, wer du bist.");
   if (!navigator.geolocation) return toast("Dieses Gerät gibt keinen Standort her.");
   toast("Frage den Standort ab …");
   const pos = await new Promise((res, rej) =>
@@ -1487,6 +1732,7 @@ const addExpense = guard(async () => {
   await api("expense", "POST", {
     date: todayISO(), title: $("#et").value, amount: a, member_id: +$("#ep").value || null,
   });
+  closeSheet();
   toast("Gebucht.");
   await load();
 });
@@ -1521,17 +1767,32 @@ async function syncPushMember() {
 }
 
 /* ---------- Router ---------- */
-const views = { home: viewHome, feed: viewFeed, add: viewAdd, stats: viewStats, set: viewSet };
+const views = { home: viewHome, feed: viewFeed, add: viewAdd, stats: viewStats, set: viewSet,
+  "set/ich": viewSetMe, "set/kasse": viewSetKasse, "set/gruppe": viewSetGroup, "set/app": viewSetApp };
+// Seitentitel: man sieht sofort, wo man ist. Unterseiten von "Mehr" bekommen einen Zurück-Pfeil.
+const TITLES = { home: "Start", feed: "Feed", stats: "Zahlen", set: "Mehr",
+  "set/ich": "Ich und dieses Gerät", "set/kasse": "Kasse", "set/gruppe": "Gruppe und Regeln", "set/app": "App" };
+let lastPage = null;
 function render() {
   if (!D) return;
   const h = location.hash.slice(1);
   const page = views[h] ? h : "home";
-  $("#app").innerHTML = `<header><img class="dot" src="/icon.svg?v=__V__" alt=""><h1>Das Programm</h1></header>` + views[page]();
-  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + page));
+  const title = page === "add" ? (editId ? "Eintrag ändern" : "Neuer Eintrag") : TITLES[page];
+  const back = page.startsWith("set/")
+    ? `<a class="back" href="#set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Mehr</a>` : "";
+  const app = $("#app");
+  app.innerHTML = back + `<header class="top"><h1>${title}</h1><img class="dot" src="/icon.svg?v=__V__" alt="Das Programm"></header>` + views[page]();
+  // Kurzes Einblenden nur beim Seitenwechsel, nicht bei jedem Neuzeichnen.
+  if (page !== lastPage) { app.classList.remove("in"); void app.offsetWidth; app.classList.add("in"); if (lastPage) scrollTo(0, 0); }
+  lastPage = page;
+  const base = page.split("/")[0];
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + base));
   if (page === "add") {
     setKind(kind); paintCrew();
     const w = $("#who"); if (w) w.onchange = paintCrew;
-    const sp = $("#sport"); if (sp) sp.oninput = resyncMeta;
+    const sp = $("#sport"); if (sp) sp.oninput = () => { resyncMeta(); paintPicks(); };
+    const dt = $("#date"); if (dt) dt.oninput = paintPicks;
+    paintPicks();
   }
   document.querySelectorAll("img[data-photo]").forEach(async img => {
     try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
@@ -1570,7 +1831,7 @@ if ("serviceWorker" in navigator) addEventListener("load", () => navigator.servi
 const currentPage = () => (views[location.hash.slice(1)] ? location.hash.slice(1) : "home");
 addEventListener("visibilitychange", () => {
   if (document.hidden || !D) return;
-  if (currentPage() === "add" || currentPage() === "set") return;
+  if (currentPage() === "add" || currentPage().startsWith("set")) return;
   load();
 });
 if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => {

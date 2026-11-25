@@ -213,6 +213,7 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
   ok(true, "das Fenster lässt sich schließen");
 
   await page.click('nav a[href="#set"]');
+  await page.click('a[href="#set/gruppe"]');
   await page.waitForSelector("#req");
   const cards = await page.$$eval("#app .card h2", (els) => els.map((e) => e.textContent.replace(/i$/, "").trim()));
   ok(cards[cards.length - 2] === "Guthaben", "die Guthaben-Regel steht ganz unten in den Einstellungen (" + cards.slice(-3).join(" | ") + ")");
