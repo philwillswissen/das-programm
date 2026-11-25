@@ -139,12 +139,12 @@ const api = (p, method = "GET", body) =>
 
   await page.fill("#names", "Anna, Ben, Chris");
   await page.click("text=Teilnehmer anlegen");
-  await openKasse();
+  await page.waitForSelector('button:has-text("Anna")');
   ok((await api("state")).members.length === 3, "drei Teilnehmer über die Oberfläche angelegt");
   ok(await page.getByText("Wer bist du?").isVisible(), "Gerät fragt einmalig nach der Person");
 
   await page.click('button:has-text("Anna")');
-  await page.waitForTimeout(200);
+  await openKasse();
   ok(!(await page.getByText("Wer bist du?").isVisible().catch(() => false)), "nach der Auswahl verschwindet die Frage");
   ok(await page.evaluate(() => localStorage.me) !== "0", "Gerät merkt sich die Person (localStorage)");
 
@@ -312,13 +312,14 @@ const api = (p, method = "GET", body) =>
   await go("set/gruppe", "#nm");
   await page.fill("#nm", "Dani");
   await page.click('button:has-text("Hinzufügen")');
-  await page.waitForSelector('input[value="Dani"]');
+  await page.waitForSelector('.prow:has-text("Dani")');
   ok((await waitFor(async () => (await api("state")).members.length === 4)), "Teilnehmer jederzeit erweiterbar");
-  await page.click('.row:has(input[value="Dani"]) button.x');
+  await page.click('.prow:has-text("Dani")');
+  await page.click('#form button:has-text("Teilnehmer entfernen")');
   await page.waitForSelector("#ask.on");
   ok(/Dani/.test(await page.textContent("#ask")), "vor dem Löschen wird nach der Person gefragt");
   await page.click('#ask button:has-text("Löschen")');
-  await page.waitForSelector('input[value="Dani"]', { state: "detached" });
+  await page.waitForSelector('.prow:has-text("Dani")', { state: "detached" });
   ok((await waitFor(async () => (await api("state")).members.length === 3)), "Teilnehmer löschbar");
   ok(!(await api("state")).entries.some(e => e.member_id === 999), "keine verwaisten Einträge");
 
