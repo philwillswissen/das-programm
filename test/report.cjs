@@ -10,6 +10,9 @@ const api = (p, method = "GET", body) =>
     body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => null) }));
 
 const { parseMeta, report } = require("../report.js");
+const leerOhneMesswerte = () => report({ members: [{ id: 1, name: "A" }],
+  entries: [{ member_id: 1, date: new Date().toISOString().slice(0, 10), kind: "workout", sport: "Laufen", meta: null }],
+  settings: { required: 2, start: "2000-01-03" }, today: new Date().toISOString().slice(0, 10) }).team;
 const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0, 10);
 
 (async () => {
@@ -48,6 +51,14 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   ok(r.team.sessions === 5, "Team-Einheiten (" + r.team.sessions + ")");
   ok(r.team.km === 45, "Team-Kilometer (" + r.team.km + ")");
   ok(r.team.together === 1, "eine gemeinsame Einheit erkannt");
+  ok(r.members[1].together === 1 && r.members[2].together === 1, "jede Person zählt ihre gemeinsamen Einheiten");
+  ok(r.team.sportCount === 3 && r.members[1].sportCount === 2, "verschiedene Sportarten (" + r.team.sportCount + ", " + r.members[1].sportCount + ")");
+  ok(r.members[1].activeDays === 3 && r.team.activeDays === 4, "aktive Tage, gleicher Tag zählt einmal (" + r.team.activeDays + ")");
+  ok(r.team.longestKm.value === 30 && r.team.longestKm.member_id === 2 && r.team.longestKm.sport === "Radfahren", "längste Strecke mit Person und Sportart");
+  ok(r.members[1].longestTime.value === 3600, "längste Einheit nach Dauer");
+  ok(r.members[1].bestWeek && r.members[1].bestWeek.units >= 1, "stärkste Woche");
+  ok(r.team.sports.find((s) => s.sport === "Bouldern").people === 2, "je Sportart, wie viele Personen sie gemacht haben");
+  ok(leerOhneMesswerte().longestKm === null, "ohne Messwerte keine Bestmarke für Strecke");
   ok(r.team.perMember.length === 2, "jede Person steht in der Übersicht");
   ok(r.members[1].weekdays.reduce((a, b) => a + b, 0) === 3, "Wochentage summieren sich auf die Einheiten");
   ok(r.team.stacked.length === 12, "gestapelter Verlauf über zwölf Wochen");
@@ -106,7 +117,11 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   const tiles = await page.$$eval(".tile", (els) => els.map((e) => e.textContent.replace(/\s+/g, " ").trim()));
   ok(tiles.length === 4, "vier Kennzahlen oben: " + tiles.join(" | "));
   ok(/^3 ?Einheiten/.test(tiles[0]), "Einheiten stimmen (" + tiles[0] + ")");
-  ok(/18 ?Kilometer/.test(tiles[2]), "Kilometer stimmen (" + tiles[2] + ")");
+  ok(/^2 ?Sportarten/.test(tiles[1]), "Sportarten stimmen (" + tiles[1] + ")");
+  ok(!/Kilometer|Stunden|Höhenmeter/.test(tiles.join(" ")), "keine Summen aus freiwilligen Messwerten");
+  const marken = await page.textContent('.card:has(h2:text-is("Bestmarken"))');
+  ok(/Längste Strecke\s*10 km/.test(marken), "Bestmarke längste Strecke (" + marken.replace(/\s+/g, " ").trim().slice(0, 60) + ")");
+  ok(/Längste Einheit\s*1:30 h/.test(marken), "Bestmarke längste Einheit");
 
   ok((await page.$$('.card:has(h2:text-is("Einheiten je Woche")) .vbar')).length === 12, "Wochenverlauf zeigt zwölf Säulen");
   ok((await page.$$('.card:has(h2:text-is("Lieblingstage")) .vbar')).length === 7, "Lieblingstage zeigen sieben Säulen");
@@ -129,6 +144,8 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   ok((await page.$$(".vstack i")).length >= 2, "der Wochenverlauf ist nach Personen gestapelt");
   const teamTiles = await page.$$eval(".tile b", (e) => e.map((x) => x.textContent));
   ok(teamTiles[0] === "6", "Team-Einheiten (" + teamTiles[0] + ")");
+  ok(teamTiles[1] === "4", "Team-Sportarten (" + teamTiles[1] + ")");
+  ok(/Ben/.test(await page.textContent('.card:has(h2:text-is("Bestmarken"))')), "im Team steht bei der Bestmarke, wer es war");
   ok(await page.isVisible('.card:has(h2:text-is("Wer wie viel"))'), "und eine Übersicht, wer wie viel gemacht hat");
 
   console.log("\n== Farbe trägt nie allein ==");

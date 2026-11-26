@@ -36,8 +36,12 @@ const EMPTY = () => ({
   sessions: 0, sick: 0, withData: 0, secs: 0, km: 0, climb: 0, kcal: 0,
   hrSum: 0, hrCount: 0,
   sports: new Map(), weekdays: [0, 0, 0, 0, 0, 0, 0], byWeek: new Map(),
+  days: new Set(), together: 0, longestKm: null, longestTime: null,
   first: null, last: null,
 });
+
+// Bestmarke merken - nur aus dem, was wirklich eingetragen wurde, nie geschätzt.
+const mark = (entry, value) => ({ value, sport: entry.sport || null, date: entry.date, member_id: entry.member_id });
 
 function add(acc, entry, m) {
   if (entry.kind === "sick") { acc.sick += entry.units || 1; return; }
@@ -50,9 +54,14 @@ function add(acc, entry, m) {
   if (m.hr) { acc.hrSum += m.hr; acc.hrCount++; }
 
   const sport = entry.sport || "Ohne Angabe";
-  const s = acc.sports.get(sport) || { sport, count: 0, secs: 0, km: 0 };
-  s.count++; s.secs += m.secs; s.km += m.km;
+  const s = acc.sports.get(sport) || { sport, count: 0, secs: 0, km: 0, people: new Set() };
+  s.count++; s.secs += m.secs; s.km += m.km; s.people.add(entry.member_id);
   acc.sports.set(sport, s);
+
+  acc.days.add(entry.date);
+  if (entry.group_id) acc.together++;
+  if (m.km > (acc.longestKm?.value || 0)) acc.longestKm = mark(entry, m.km);
+  if (m.secs > (acc.longestTime?.value || 0)) acc.longestTime = mark(entry, m.secs);
 
   // 0 = Montag
   const day = (new Date(entry.date + "T12:00:00Z").getUTCDay() + 6) % 7;
@@ -66,7 +75,13 @@ function add(acc, entry, m) {
 }
 
 function finish(acc, weeksBack, memberCount = 1) {
-  const sports = [...acc.sports.values()].sort((a, b) => b.count - a.count || b.secs - a.secs);
+  const sports = [...acc.sports.values()]
+    .map(({ people, ...s }) => ({ ...s, people: people.size }))
+    .sort((a, b) => b.count - a.count || b.secs - a.secs);
+  let bestWeek = null;
+  for (const [week, units] of acc.byWeek) {
+    if (!bestWeek || units > bestWeek.units || (units === bestWeek.units && week > bestWeek.week)) bestWeek = { week, units };
+  }
   return {
     sessions: acc.sessions,
     sick: acc.sick,
@@ -77,6 +92,12 @@ function finish(acc, weeksBack, memberCount = 1) {
     kcal: acc.kcal,
     avgMinutes: acc.withData ? Math.round(acc.secs / 60 / acc.withData) : 0,
     avgHr: acc.hrCount ? Math.round(acc.hrSum / acc.hrCount) : 0,
+    sportCount: sports.filter((s) => s.sport !== "Ohne Angabe").length,
+    activeDays: acc.days.size,
+    together: acc.together,
+    longestKm: acc.longestKm && { ...acc.longestKm, value: Math.round(acc.longestKm.value * 10) / 10 },
+    longestTime: acc.longestTime,
+    bestWeek,
     sports: sports.slice(0, 8),
     moreSports: Math.max(0, sports.length - 8),
     weekdays: acc.weekdays,
@@ -137,6 +158,7 @@ export function report({ members, entries, settings, today, span = 12 }) {
       id: m.id,
       name: m.name,
       sessions: out.members[m.id].sessions,
+      sportCount: out.members[m.id].sportCount,
       hours: out.members[m.id].hours,
       km: out.members[m.id].km,
     })),
