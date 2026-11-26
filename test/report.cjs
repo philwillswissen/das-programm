@@ -113,6 +113,8 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   const wdLabels = await page.$$eval('.card:has(h2:text-is("Lieblingstage")) .vbar u', e => e.map(x => x.textContent));
   ok(wdLabels.join("") === "MoDiMiDoFrSaSo", "mit Wochentagen beschriftet (" + wdLabels.join(" ") + ")");
   ok(await page.isVisible(".vbars .goal"), "mit gestrichelter Ziellinie");
+  const lastCls = await page.locator('.card:has(h2:text-is("Einheiten je Woche")) .vbar i').last().getAttribute("class");
+  ok(!/\bq\b/.test(lastCls || ""), "die laufende Woche ist nie grau wie eine verfehlte (" + (lastCls || "grün") + ")");
   const sportRows = await page.$$eval('.card:has(h2:text-is("Sportarten")) .hbar .nm', (e) => e.map((x) => x.textContent.trim()));
   ok(sportRows[0].includes("Laufen"), "häufigste Sportart steht oben (" + sportRows.join(", ") + ")");
   const clipped = await page.$$eval(".hbar .nm", (els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim()));

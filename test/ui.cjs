@@ -142,10 +142,12 @@ const api = (p, method = "GET", body) =>
   await page.waitForSelector('button:has-text("Anna")');
   ok((await api("state")).members.length === 3, "drei Teilnehmer über die Oberfläche angelegt");
   ok(await page.getByText("Wer bist du?").isVisible(), "Gerät fragt einmalig nach der Person");
+  ok(!(await page.isVisible("nav")), "solange die Frage steht, ist die Navigation ausgeblendet");
 
   await page.click('button:has-text("Anna")');
   await openKasse();
   ok(!(await page.getByText("Wer bist du?").isVisible().catch(() => false)), "nach der Auswahl verschwindet die Frage");
+  ok(await page.isVisible("nav"), "danach ist die Navigation wieder da");
   ok(await page.evaluate(() => localStorage.me) !== "0", "Gerät merkt sich die Person (localStorage)");
 
   console.log("\n== Eintrag mit GPX ==");
@@ -240,8 +242,8 @@ const api = (p, method = "GET", body) =>
   let weekRow = "";
   for (let i = 0; i < 6; i++) {
     await page.goto(BASE + "/#home", { waitUntil: "networkidle" });
-    await page.waitForSelector('h2:has-text("Diese Woche")');
-    weekRow = (await page.textContent('.card:has(h2:has-text("Diese Woche")) table')).replace(/\s+/g, " ").trim();
+    await page.waitForSelector('h2:has-text("Wochenstand")');
+    weekRow = (await page.textContent('.card:has(h2:has-text("Wochenstand")) table')).replace(/\s+/g, " ").trim();
     if (/Anna[^|]*5 \/ 2/.test(weekRow)) break;
     await sleep(1200);
   }
@@ -268,7 +270,7 @@ const api = (p, method = "GET", body) =>
   ok(/\u{1F525}|\u{1F4AA}/u.test(heroTx), "Hero motiviert: " + heroTx.slice(0, 55));
   const bodyTx = await page.textContent("body");
   ok(bodyTx.includes("Kasse") && /Angesammelt/.test(bodyTx), "die Kasse steht weiterhin da, jetzt je Person");
-  ok(bodyTx.indexOf("Diese Woche") < bodyTx.indexOf("Angesammelt"), "die Kasse steht weiter unten");
+  ok(bodyTx.indexOf("Wochenstand") < bodyTx.indexOf("Angesammelt"), "die Kasse steht weiter unten");
   ok(bodyTx.includes("Auf den Home-Bildschirm"), "Installationshinweis steht auf der Startseite");
   ok(bodyTx.includes("Benachrichtigungen einschalten") || bodyTx.includes("Home-Bildschirm"),
      "Aufforderung fuer Benachrichtigungen steht auf der Startseite");
@@ -370,7 +372,7 @@ const api = (p, method = "GET", body) =>
   console.log("\n== Robustheit ==");
   await page.goto(BASE + "/#unsinn", { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
-  ok((await page.textContent("body")).includes("Diese Woche"), "unbekannte Route fällt auf die Startseite zurück");
+  ok((await page.textContent("body")).includes("Wochenstand"), "unbekannte Route fällt auf die Startseite zurück");
   await page.goto(BASE + "/irgendwas", { waitUntil: "networkidle" });
   ok((await page.title()) === "Das Programm", "unbekannter Pfad liefert die App (SPA-Fallback)");
 

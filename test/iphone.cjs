@@ -134,6 +134,11 @@ const act = async (page, text, label) => {
   if (PIN) await ctx2.addInitScript((v) => { try { localStorage.pin = v; } catch {} }, PIN);
   const p2 = await ctx2.newPage();
   await p2.goto(BASE, { waitUntil: "networkidle" });
+  // Erst die Frage nach der Person, dann das Installationsfenster - nie beides übereinander.
+  await p2.waitForSelector('button:has-text("Anna")');
+  ok(!(await p2.evaluate(() => document.getElementById("install").classList.contains("on"))),
+     "beim ersten Start liegt kein Installationsfenster über „Wer bist du?“");
+  await p2.click('button:has-text("Anna")');
   await p2.waitForSelector("#install.on", { timeout: 8000 });
   const inst = (await p2.textContent("#install")).replace(/\s+/g, " ");
   ok(/Teilen|Startbildschirm/i.test(inst), "iPhone bekommt die Anleitung übers Teilen-Menü: " + inst.trim().slice(0, 80));
