@@ -38,9 +38,19 @@ const api = (p, method = "GET", body) =>
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
+  // "set/gruppe": erst "Mehr" in der Navigation, dann den Bereich auf der Übersicht.
   const go = async (hash, sel) => {
-    await page.click(`nav a[href="#${hash}"]`);
+    const [base, sub] = hash.split("/");
+    await page.click(`nav a[href="#${base}"]`);
+    if (sub) await page.click(`a[href="#${hash}"]`);
     await page.waitForSelector(sel, { timeout: 15000 });
+  };
+  // Die Tabelle aller Personen auf der Kassenkarte ist eingeklappt.
+  const openKasse = async () => {
+    await page.waitForSelector('.card:has(h2:has-text("Kasse")) summary');
+    if (!(await page.isVisible('.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")')))
+      await page.click('.card:has(h2:has-text("Kasse")) summary');
+    await page.waitForSelector('.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")');
   };
 
   if (PIN) {
@@ -91,7 +101,7 @@ const api = (p, method = "GET", body) =>
   await ip.waitForTimeout(2500);
   ok(!(await ip.evaluate(() => document.getElementById("install").classList.contains("on"))),
      "nach „Verstanden“ kommt er nicht sofort wieder");
-  await ip.goto(BASE + "/#set", { waitUntil: "domcontentloaded" });
+  await ip.goto(BASE + "/#set/app", { waitUntil: "domcontentloaded" });
   await ip.waitForSelector('button:has-text("Installieren")');
   await ip.click('button:has-text("Installieren")');
   await ip.waitForSelector("#install.on");
@@ -129,7 +139,7 @@ const api = (p, method = "GET", body) =>
 
   await page.fill("#names", "Anna, Ben, Chris");
   await page.click("text=Teilnehmer anlegen");
-  await page.waitForSelector('.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")');
+  await openKasse();
   ok((await api("state")).members.length === 3, "drei Teilnehmer über die Oberfläche angelegt");
   ok(await page.getByText("Wer bist du?").isVisible(), "Gerät fragt einmalig nach der Person");
 
@@ -275,7 +285,7 @@ const api = (p, method = "GET", body) =>
   ok((await page.$$(".post .av")).length >= 5, "jeder Eintrag hat ein Namenskuerzel");
 
   console.log("\n== Einstellungen ==");
-  await go("set", "#req");
+  await go("set/gruppe", "#req");
   await page.fill("#req", "3");
   await page.fill("#fine", "25");
   await page.fill("#cur", "CHF");
@@ -285,11 +295,12 @@ const api = (p, method = "GET", body) =>
     return x.settings.required === 3 ? x : null;
   }) || (await api("state"));
   ok(s2.settings.required === 3 && s2.settings.fine === 25 && s2.settings.currency === "CHF", "Regeln frei konfigurierbar und gespeichert");
-  await go("home", '.card:has(h2:has-text("Kasse")) th:has-text("Angesammelt")');
+  await go("home", '.card:has(h2:has-text("Kasse"))');
+  await openKasse();
   ok((await page.textContent("body")).includes("CHF"), "Währung schlägt in der Auswertung durch");
 
   console.log("\n== Kasse ==");
-  await go("set", "#et");
+  await go("set/kasse", "#et");
   await page.fill("#et", "Grillen");
   await page.fill("#ea", "60");
   await page.click('button:has-text("Buchen")');
@@ -298,6 +309,7 @@ const api = (p, method = "GET", body) =>
   ok((await page.textContent('.item:has-text("Grillen")')).includes("60,00 CHF"), "Ausgabe erscheint mit Betrag in der Liste");
 
   console.log("\n== Teilnehmer verwalten ==");
+  await go("set/gruppe", "#nm");
   await page.fill("#nm", "Dani");
   await page.click('button:has-text("Hinzufügen")');
   await page.waitForSelector('input[value="Dani"]');
@@ -317,7 +329,7 @@ const api = (p, method = "GET", body) =>
   const mf = await (await fetch(BASE + "/manifest.json")).json();
   ok(mf.name === "Das Programm" && mf.display === "standalone", "Manifest ist installierbar");
   ok(mf.icons.filter(i => i.type === "image/png").length >= 2, "PNG-Icons für Android/iOS vorhanden");
-  await go("set", 'h2:has-text("Benachrichtigungen")');
+  await go("set/ich", 'h2:has-text("Benachrichtigungen")');
   ok((await page.textContent("body")).includes("Push auf diesem Gerät"), "Push-Schalter pro Gerät vorhanden");
 
   console.log("\n== Eingaben überleben einen Tabwechsel ==");
@@ -336,7 +348,7 @@ const api = (p, method = "GET", body) =>
     await page.waitForTimeout(900);
   };
 
-  await go("set", "#icuId");
+  await go("set/ich", "#icuId");
   await page.fill("#icuId", "i123456");
   await awayAndBack();
   ok(await page.inputValue("#icuId") === "i123456", "Athleten-ID bleibt stehen, wenn man kurz in einen anderen Tab geht");

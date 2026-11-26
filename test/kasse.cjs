@@ -97,6 +97,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   ok(/60,00/.test(annaZeile), "Annas Zahlen stehen drin: " + annaZeile.trim());
   const benZeile = (await kasse.locator('tr:has-text("Ben")').textContent()).replace(/\s+/g, " ");
   ok(/0,00/.test(benZeile), "Bens auch: " + benZeile.trim());
+  await kasse.locator("summary").click();   // Tabelle aller Personen aufklappen
   ok(await kasse.locator('tr:has-text("ohne Person")').isVisible(), "Ausgaben ohne Person stehen in einer eigenen Zeile");
 
   await page.click('.card:has(h2:has-text("Kasse")) button.i');
@@ -106,6 +107,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   await page.click("#info button");
 
   await page.click('nav a[href="#set"]');
+  await page.click('a[href="#set/kasse"]');
   await page.waitForSelector("#ep");
   ok((await page.locator("#ep option").count()) >= 3, "beim Buchen lässt sich die Person wählen");
   await page.selectOption("#ep", { label: "Ben" });

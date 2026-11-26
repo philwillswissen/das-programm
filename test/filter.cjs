@@ -10,6 +10,12 @@ const api = (p, method = "GET", body) =>
     body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => null) }));
 const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0, 10);
 
+// Ändern, Foto und Löschen liegen hinter dem Knopf "Aktionen" am Beitrag.
+const act = async (page, text, label) => {
+  await page.locator(`.post:has-text("${text}") button[title="Aktionen"]`).first().click();
+  await page.waitForSelector("#form.on");
+  await page.locator(`#form button:has-text("${label}")`).click();
+};
 (async () => {
   const s0 = await api("state");
   for (const m of s0.data.members) await api("member/" + m.id, "DELETE");
@@ -80,7 +86,7 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   // App sicher erscheint. Ein nativer Dialog waere hier ein Fehler.
   let nativ = 0;
   page.on("dialog", (d) => { nativ++; d.dismiss(); });
-  await page.locator('.post:has-text("Bouldern") button[title="Löschen"]').click();
+  await act(page, "Bouldern", "Löschen");
   await page.waitForSelector("#ask.on");
   let gefragt = (await page.textContent("#ask")).replace(/\s+/g, " ");
   ok(true, "vor dem Löschen wird gefragt");
@@ -96,7 +102,7 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   ok((await api("state")).data.entries.some((e) => e.sport === "Bouldern"), "Abbrechen löscht nichts");
   ok(!(await page.isVisible("#backdrop.on")), "und der Hintergrund ist wieder frei");
 
-  await page.locator('.post:has-text("Schwimmen") button[title="Löschen"]').click();
+  await act(page, "Schwimmen", "Löschen");
   await page.waitForSelector("#ask.on");
   gefragt = (await page.textContent("#ask")).replace(/\s+/g, " ");
   ok(/gemeinsame Einheit/i.test(gefragt), "bei einer gemeinsamen Einheit steht dabei, dass es alle betrifft");
@@ -105,7 +111,7 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   await page.waitForFunction(() => !document.getElementById("ask").classList.contains("on"));
   ok((await api("state")).data.entries.some((e) => e.sport === "Schwimmen"), "ein Tipp daneben löscht auch nichts");
 
-  await page.locator('.post:has-text("Bouldern") button[title="Löschen"]').click();
+  await act(page, "Bouldern", "Löschen");
   await page.waitForSelector("#ask.on");
   await page.click('#ask button:has-text("Löschen")');
   await page.waitForTimeout(900);
@@ -124,9 +130,15 @@ const day = (back) => new Date(Date.now() - back * 864e5).toISOString().slice(0,
   await page.reload({ waitUntil: "networkidle" });
   await page.click('nav a[href="#feed"]');
   await page.waitForSelector('.post:has-text("Krankmeldung")');
-  ok((await page.locator('.post:has-text("Krankmeldung") button:has-text("Foto")').count()) === 0,
+  await page.locator('.post:has-text("Krankmeldung") button[title="Aktionen"]').first().click();
+  await page.waitForSelector("#form.on");
+  ok((await page.locator('#form button:has-text("Foto")').count()) === 0,
      "zu einer Krankmeldung wird kein Foto angeboten");
-  ok(await page.locator('.post:has-text("Laufen") button:has-text("Foto")').first().isVisible(),
+  await page.click('#form button:has-text("Abbrechen")');
+  await page.waitForFunction(() => !document.getElementById("form").classList.contains("on"));
+  await page.locator('.post:has-text("Laufen") button[title="Aktionen"]').first().click();
+  await page.waitForSelector("#form.on");
+  ok(await page.locator('#form button:has-text("Foto")').first().isVisible(),
      "zu einer Sporteinheit schon");
 
   ok(errors.length === 0, "keine JavaScript-Fehler" + (errors.length ? ": " + errors[0] : ""));

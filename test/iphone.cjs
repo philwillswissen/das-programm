@@ -14,6 +14,12 @@ const api = (p, method = "GET", body) =>
 const monday = (back) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7 * back); return d.toISOString().slice(0, 10); };
 const gestern = () => new Date(Date.now() - 864e5).toISOString().slice(0, 10);
 
+// Ändern, Foto und Löschen liegen hinter dem Knopf "Aktionen" am Beitrag.
+const act = async (page, text, label) => {
+  await page.locator(`.post:has-text("${text}") button[title="Aktionen"]`).first().click();
+  await page.waitForSelector("#form.on");
+  await page.locator(`#form button:has-text("${label}")`).click();
+};
 (async () => {
   // WebKit liegt nicht in jedem Container. Fehlt es, sagen wir das und
   // lassen die Suite nicht scheitern - installieren:
@@ -60,7 +66,7 @@ const gestern = () => new Date(Date.now() - 864e5).toISOString().slice(0, 10);
   // App nicht an. Das eigene Fenster muss da sein.
   await page.click('nav a[href="#feed"]');
   await page.waitForSelector(".post");
-  await page.locator('.post:has-text("Pilates") button[title="Löschen"]').click();
+  await act(page, "Pilates", "Löschen");
   await page.waitForSelector("#ask.on");
   ok(true, "das Fenster erscheint auch in Safari");
   ok(nativ === 0, "und es ist kein nativer Dialog");
@@ -98,6 +104,7 @@ const gestern = () => new Date(Date.now() - 864e5).toISOString().slice(0, 10);
 
   console.log("\n== Einstellungen ==");
   await page.click('nav a[href="#set"]');
+  await page.click('a[href="#set/gruppe"]');
   await page.waitForSelector("#req");
   ok(await page.inputValue("#creditSteps") === "1  0,5  0,3", "die Guthaben-Stufen stehen da");
   await page.click('.card:has(h2:has-text("Guthaben")) button.i');

@@ -12,6 +12,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 const gestern = () => new Date(Date.now() - 864e5).toISOString().slice(0, 10);
 const entryById = async (id) => (await api("state")).data.entries.find((e) => e.id === id);
 
+// Ändern, Foto und Löschen liegen hinter dem Knopf "Aktionen" am Beitrag.
+const act = async (page, text, label) => {
+  await page.locator(`.post:has-text("${text}") button[title="Aktionen"]`).first().click();
+  await page.waitForSelector("#form.on");
+  await page.locator(`#form button:has-text("${label}")`).click();
+};
 (async () => {
   const s0 = await api("state");
   for (const m of s0.data.members) await api("member/" + m.id, "DELETE");
@@ -72,11 +78,15 @@ const entryById = async (id) => (await api("state")).data.entries.find((e) => e.
 
   await page.click('nav a[href="#feed"]');
   await page.waitForSelector(".post");
-  ok(await page.locator('.post >> nth=0').locator('button[title="Ändern"]').isVisible(), "jeder Eintrag hat einen Ändern-Knopf");
-  ok(await page.locator('.post >> nth=0').locator('button[title="Löschen"]').isVisible(), "und einen zum Löschen");
+  await page.locator('.post >> nth=0').locator('button[title="Aktionen"]').click();
+  await page.waitForSelector("#form.on");
+  ok(await page.isVisible('#form button:has-text("Ändern")'), "jeder Eintrag hat einen Ändern-Knopf");
+  ok(await page.isVisible('#form button:has-text("Löschen")'), "und einen zum Löschen");
+  await page.click('#form button:has-text("Abbrechen")');
+  await page.waitForFunction(() => !document.getElementById("form").classList.contains("on"));
 
-  await page.locator('.post:has-text("Yoga") button[title="Ändern"]').click();
-  await page.waitForSelector('h2:has-text("Eintrag ändern")');
+  await act(page, "Yoga", "Ändern");
+  await page.waitForSelector('h1:has-text("Eintrag ändern")');
   ok(true, "der Ändern-Knopf öffnet das Formular");
   ok(await page.inputValue("#sport") === "Yoga", "die Sportart ist vorbelegt");
   ok(await page.isDisabled("#who"), "die Person lässt sich nachträglich nicht umhängen");
@@ -91,14 +101,14 @@ const entryById = async (id) => (await api("state")).data.entries.find((e) => e.
   const geaendert = (await api("state")).data.entries.find((x) => x.sport === "Pilates");
   ok(geaendert && geaendert.note === "in Ruhe nachgetragen", "und steht so in der Datenbank");
 
-  await page.locator('.post:has-text("Pilates") button[title="Ändern"]').click();
-  await page.waitForSelector('h2:has-text("Eintrag ändern")');
+  await act(page, "Pilates", "Ändern");
+  await page.waitForSelector('h1:has-text("Eintrag ändern")');
   await page.click('button:has-text("Abbrechen")');
   await page.waitForSelector(".post");
   ok(await page.isVisible('.post:has-text("Pilates")'), "Abbrechen ändert nichts");
 
-  await page.locator('.post:has-text("Pilates") button[title="Ändern"]').click();
-  await page.waitForSelector('h2:has-text("Eintrag ändern")');
+  await act(page, "Pilates", "Ändern");
+  await page.waitForSelector('h1:has-text("Eintrag ändern")');
   await page.click('button:has-text("Eintrag löschen")');
   await page.waitForSelector("#ask.on");
   ok(/Pilates/.test(await page.textContent("#ask")), "auch hier wird vorher gefragt");
@@ -109,7 +119,7 @@ const entryById = async (id) => (await api("state")).data.entries.find((e) => e.
 
   await page.click('nav a[href="#add"]');
   await page.waitForSelector("#sport");
-  ok((await page.textContent('h2')).includes("Neuer Eintrag"), "danach ist das Formular wieder leer für einen neuen Eintrag");
+  ok((await page.textContent('h1')).includes("Neuer Eintrag"), "danach ist das Formular wieder leer für einen neuen Eintrag");
   ok(!!(await page.$("#file")), "und das Dateifeld ist zurück");
 
   ok(errors.length === 0, "keine JavaScript-Fehler" + (errors.length ? ": " + errors[0] : ""));
