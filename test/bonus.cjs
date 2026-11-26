@@ -221,12 +221,12 @@ const W = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
 
   ok(await page.inputValue("#creditSteps") === "1  0,5  0,3", "die Stufen stehen als Feld da (" + await page.inputValue("#creditSteps") + ")");
   await page.fill("#creditSteps", "2; 1; 0,5");
-  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Merken") >> nth=0');
+  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Guthaben speichern")');
   await page.waitForFunction(() => document.querySelector("#creditSteps")?.value === "2  1  0,5");
   let gs = (await api("state")).data.settings;
   ok(gs.creditSteps.join() === "2,1,0.5", "Komma und Semikolon werden verstanden (" + gs.creditSteps.join() + ")");
   await page.fill("#creditMax", "4");
-  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Merken") >> nth=1');
+  await page.click('.card:has(h2:has-text("Guthaben")) button:has-text("Guthaben speichern")');
   await page.waitForFunction(() => document.querySelector("#creditMax")?.value === "4");
   gs = (await api("state")).data.settings;
   ok(gs.creditMax === 4, "der Deckel laesst sich einstellen (" + gs.creditMax + ")");

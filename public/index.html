@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Das Programm</title>
-<meta name="theme-color" content="#0b1220">
+<meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Das Programm">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,13 +15,13 @@
 <style>
 :root{
   --bg:#f2f4f7; --card:#fff; --fg:#0b1220; --mut:#5d6779; --line:#e4e8ef;
-  --acc:#16a34a; --accd:#15803d; --accsoft:#16a34a1c; --bad:#dc2626; --warn:#b45309; --chip:#eef2f7;
+  --acc:#15803d; --accd:#166534; --acct:#15803d; --accsoft:#16a34a1c; --bad:#dc2626; --warn:#b45309; --chip:#eef2f7;
   --field:#f7f9fc; --fieldline:#c3ccda; --focus:#16a34a33;
   --navh:64px; --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 1px rgba(16,24,40,.03);
 }
 @media (prefers-color-scheme:dark){
   :root{ --bg:#0b1220; --card:#151d2e; --fg:#eef2f7; --mut:#9aa7bd; --line:#2b3850; --chip:#1f2b40;
-         --field:#0d1526; --fieldline:#3b4a66; --focus:#22c55e40; --accsoft:#22c55e24; --warn:#f59e0b; --shadow:none; }
+         --field:#0d1526; --fieldline:#3b4a66; --focus:#22c55e40; --accsoft:#22c55e24; --acct:#4ade80; --warn:#f59e0b; --shadow:none; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
@@ -37,7 +38,7 @@ main.in{animation:fade .18s ease-out}
 header.top{display:flex;align-items:center;gap:10px;margin:6px 2px 14px;min-height:40px}
 header.top h1{font-size:28px;line-height:1.15;margin:0;letter-spacing:-.02em;font-weight:800;flex:1}
 header.top .dot{width:30px;height:30px;border-radius:9px;display:block;flex:0 0 auto}
-a.back{display:inline-flex;align-items:center;gap:2px;color:var(--acc);text-decoration:none;font-weight:600;font-size:16px;
+a.back{display:inline-flex;align-items:center;gap:2px;color:var(--acct);text-decoration:none;font-weight:600;font-size:16px;
   min-height:44px;padding-right:12px;margin:0 0 -6px 2px}
 a.back svg{width:20px;height:20px}
 
@@ -51,10 +52,10 @@ th{font-size:12px;color:var(--mut);font-weight:600}
 td,th{padding:8px 4px;text-align:right;border-bottom:1px solid var(--line)}
 .nw{white-space:nowrap}
 th.sortable{cursor:pointer;user-select:none}
-th.sortable.on{color:var(--acc)}
+th.sortable.on{color:var(--acct)}
 tr:last-child td{border-bottom:0}
 td:first-child,th:first-child{text-align:left;font-weight:600}
-.ok{color:var(--acc)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+.ok{color:var(--acct)} .bad{color:var(--bad)} .warn{color:var(--warn)}
 input,select,textarea{font:inherit;width:100%;padding:12px 13px;border-radius:12px;
   border:1.5px solid var(--fieldline);background:var(--field);color:var(--fg);margin:5px 0;appearance:none}
 input::placeholder,textarea::placeholder{color:var(--mut);opacity:.75}
@@ -70,7 +71,8 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--focus);outline-offs
 button.ghost{background:var(--chip);color:var(--fg);border:1px solid var(--line)}
 button.s{width:auto;padding:8px 14px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;border:1px solid var(--line);min-height:36px}
 button.x{width:auto;min-width:44px;min-height:44px;padding:6px 10px;background:transparent;color:var(--mut);font-size:16px;margin:-6px -8px -6px 0;border:0}
-button.link{width:auto;background:transparent;color:var(--acc);padding:6px 2px;font-weight:600;font-size:14px;min-height:36px;margin:0;border:0}
+button.s.go{background:var(--acc);color:#fff;border-color:var(--acc)}
+button.link{width:auto;background:transparent;color:var(--acct);padding:6px 2px;font-weight:600;font-size:14px;min-height:36px;margin:0;border:0}
 label{font-size:13px;color:var(--mut);display:block;margin-top:14px;font-weight:600}
 .row{display:flex;gap:8px;align-items:center}
 .row>*{flex:1;margin:4px 0}
@@ -121,11 +123,11 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .vstack i{border-radius:0}
 .vstack i:last-child{border-radius:4px 4px 0 0}
 
-.hbar{display:grid;grid-template-columns:minmax(0,7.4em) 1fr auto;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+.hbar{display:grid;grid-template-columns:minmax(0,7.4em) 1fr 6.6em;align-items:center;gap:8px;margin:7px 0;font-size:13px}
 .hbar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hbar .tr{background:var(--chip);border-radius:5px;height:10px;overflow:hidden}
 .hbar .tr i{display:block;height:100%;border-radius:5px;background:var(--bar);min-width:3px}
-.hbar .vl{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hbar .vl{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px;font-size:12px;color:var(--mut)}
 .legend b{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
@@ -133,7 +135,7 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
      pointer-events:none;opacity:0;transition:opacity .12s;white-space:nowrap;box-shadow:0 4px 16px rgba(2,6,23,.3)}
 #tip.on{opacity:.96}
 
-.hero{background:linear-gradient(140deg,#16a34a,#0d9488);color:#fff;border:0;text-align:center;padding:22px 18px 18px;box-shadow:0 8px 24px -12px rgba(13,148,136,.55)}
+.hero{background:linear-gradient(140deg,#15803d,#0f766e);color:#fff;border:0;text-align:center;padding:22px 18px 18px;box-shadow:0 8px 24px -12px rgba(13,148,136,.55)}
 .hero .flame{font-size:40px;line-height:1}
 .hero .big{font-size:40px;margin-top:2px}
 .hero .sub,.hero h2{color:rgba(255,255,255,.92)}
@@ -163,7 +165,7 @@ img.ph{width:100%;max-height:46vh;object-fit:cover;border-radius:12px;margin-top
 .legend-cells .cell{width:16px;height:16px;border-radius:5px;font-size:9px;margin-right:5px;vertical-align:-4px}
 
 details.more{margin-top:10px;border-top:1px solid var(--line)}
-details.more summary{list-style:none;cursor:pointer;color:var(--acc);font-weight:600;font-size:14px;padding:12px 0 2px;min-height:40px}
+details.more summary{list-style:none;cursor:pointer;color:var(--acct);font-weight:600;font-size:14px;padding:12px 0 2px;min-height:40px}
 details.more summary::-webkit-details-marker{display:none}
 details.more summary::after{content:" \25BE"}
 details.more[open] summary::after{content:" \25B4"}
@@ -181,7 +183,7 @@ details.more[open] summary::after{content:" \25B4"}
 .plan .when{font-weight:700}
 .feedbar{display:flex;justify-content:space-between;align-items:center;margin:-4px 0 10px;gap:8px}
 .feedbar button{width:auto;background:transparent;color:var(--mut);border:0;font-weight:600;font-size:14px;padding:4px 2px;margin:0;min-height:36px}
-.feedbar button.pl{color:var(--acc)}
+.feedbar button.pl{color:var(--acct)}
 .who-pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .who-pick button{flex:0 0 auto;width:auto;padding:7px 12px;font-size:14px;background:var(--chip);color:var(--fg);font-weight:600;margin:0;min-height:38px}
 .who-pick button.on{background:var(--acc);color:#fff}
@@ -228,7 +230,7 @@ nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;paddi
   color:var(--mut);text-decoration:none;font-size:11px;font-weight:600}
 nav a .ico{display:grid;place-items:center;width:52px;height:30px;border-radius:999px;transition:background .15s}
 nav a svg{width:22px;height:22px}
-nav a.on{color:var(--acc)}
+nav a.on{color:var(--acct)}
 nav a.on .ico{background:var(--accsoft)}
 nav a.plus .ico{width:46px;height:46px;margin-top:-16px;border-radius:50%;background:var(--acc);color:#fff;
   box-shadow:0 6px 16px -4px rgba(22,163,74,.6);border:3px solid var(--bg)}
@@ -257,7 +259,7 @@ button.i::after{content:"";position:absolute;inset:-11px}
 #install h3{margin:0;font-size:17px}
 #install p{margin:2px 0 0;font-size:13px;color:var(--mut)}
 #install ol{margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.7}
-#install .arrow{text-align:center;font-size:26px;color:var(--acc);margin-top:10px;animation:bob 1.4s ease-in-out infinite}
+#install .arrow{text-align:center;font-size:26px;color:var(--acct);margin-top:10px;animation:bob 1.4s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
 .toast{position:fixed;left:50%;transform:translate(-50%,8px);bottom:calc(var(--navh) + 18px + env(safe-area-inset-bottom));background:#0b1220;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:35;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw}
 .toast.on{opacity:.96;transform:translate(-50%,0)}
@@ -265,13 +267,59 @@ button.i::after{content:"";position:absolute;inset:-11px}
 .empty .ic{font-size:38px;line-height:1;margin-bottom:6px}
 .empty b{display:block;font-size:17px;margin-bottom:4px}
 
+/* Platzhalter beim Laden, in der Form der echten Karten */
+.skel{background:var(--chip);border-radius:10px;position:relative;overflow:hidden}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--card) 55%,transparent),transparent);animation:shimmer 1.3s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+.skel-hero{height:178px;border-radius:18px;margin-bottom:12px}
+.skel-line{height:14px;margin:12px 0}
+
+/* Erster Start: eine Frage, ganze Seite */
+.welcome{text-align:center;padding:28px 18px 22px}
+.welcome img{width:64px;height:64px;border-radius:18px;display:block;margin:0 auto 12px}
+.welcome h2{display:block;font-size:22px;margin:0 0 6px}
+.welcome .sub{font-size:15px;max-width:30ch;margin:0 auto 16px}
+.welcome .seg.who button{min-height:52px;font-size:16px}
+
+/* Messwerte: Zahl groß, Bezeichnung klein darunter */
+.mrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.mrow div{min-width:0}
+.mrow b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow span{display:block;font-size:12px;color:var(--mut)}
+.mmore{font-size:13px;color:var(--mut);margin-top:6px;font-variant-numeric:tabular-nums}
+
+/* Teilnehmer als lesbare Zeilen */
+.plist button.prow{display:flex;align-items:center;gap:12px;background:transparent;color:var(--fg);font-weight:400;text-align:left;
+  border:0;border-top:1px solid var(--line);border-radius:0;margin:0;padding:10px 2px;min-height:56px}
+.plist button.prow:first-child{border-top:0}
+.plist button.prow:active{background:var(--chip)}
+.plist .av{width:34px;height:34px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
+.plist .pt{flex:1;min-width:0}
+.plist .pt b{display:block;font-weight:600}
+.plist .pt span{font-size:13px;color:var(--mut)}
+.plist .chev{color:var(--mut);font-size:22px;line-height:1}
+.sheet button.danger{background:transparent;color:var(--bad);border:0;font-weight:600}
+
+/* Diagramme: Monat unter der Achse, Platz rechts für die Zielmarke */
+.vbars.has-goal{padding-right:38px}
+.vbars .goal em{right:0;top:-7px;width:36px;text-align:right;background:transparent;line-height:1.1}
+.vbar u.mo{font-weight:600;min-height:10px;margin-top:1px}
+.tbl-wrap{overflow-x:auto}
+
+/* Ein Moment, wenn die Woche voll ist */
+.hero.win .flame{animation:pop .7s cubic-bezier(.2,.8,.2,1.4)}
+.hero.win .bar i{animation:fill 1s ease-out}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes fill{from{width:0}}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 </style>
 </head>
 <body>
-<main id="app"><div class="card">Lade…</div></main>
+<main id="app" aria-busy="true"><div class="skel skel-hero"></div><div class="card"><div class="skel skel-line" style="width:40%"></div><div class="skel skel-line"></div><div class="skel skel-line"></div><div class="skel skel-line" style="width:70%"></div></div><span class="sub" style="position:absolute;left:-9999px">Lade …</span></main>
 <nav>
   <a href="#home"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></span>Start</a>
   <a href="#feed"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg></span>Feed</a>
@@ -282,10 +330,10 @@ button.i::after{content:"";position:absolute;inset:-11px}
 <div class="toast" id="toast"></div>
 <div id="tip"></div>
 <div id="backdrop" onclick="laterInstall(false);hideInfo();askClose(false);closeSheet()"></div>
-<div id="install" role="dialog" aria-modal="true" aria-labelledby="installTitle"></div>
-<div id="info" class="sheet" role="dialog" aria-modal="true"></div>
-<div id="ask" class="sheet" role="alertdialog" aria-modal="true"></div>
-<div id="form" class="sheet" role="dialog" aria-modal="true"></div>
+<div id="install" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="installTitle"></div>
+<div id="info" class="sheet" role="dialog" tabindex="-1" aria-modal="true"></div>
+<div id="ask" class="sheet" role="alertdialog" tabindex="-1" aria-modal="true"></div>
+<div id="form" class="sheet" role="dialog" tabindex="-1" aria-modal="true"></div>
 <script>
 /* ---------- Basis ---------- */
 const $ = s => document.querySelector(s);
@@ -348,7 +396,7 @@ function showInstall(force) {
       `<p style="margin-top:10px">In deinem Browser geht das über das Menü: <b>Zum Startbildschirm hinzufügen</b> bzw. <b>App installieren</b>.</p>
        <button class="ghost" onclick="laterInstall(true)">Verstanden</button>`;
   }
-  box.classList.add("on");
+  box.classList.add("on"); focusSheet(box);
   document.getElementById("backdrop").classList.add("on");
 }
 // Kurze Erklärungen, dort wo die Frage aufkommt.
@@ -368,13 +416,14 @@ const INFOS = () => { const S = (D && D.settings) || {}; return {
   kasse: ["Wie die Kasse funktioniert", `
     <p>Es gibt keinen Topf, in den jemand vorher einzahlt. Wer eine Woche verpasst,
        sammelt <b>Schulden</b> an – die stehen in der Spalte <b>Angesammelt</b>.</p>
-    <p>Unternehmt ihr etwas und jemand bezahlt es, bucht er es hier auf sich.
+    <p>Unternehmt ihr etwas und jemand bezahlt es, bucht er es über <b>Ausgabe buchen</b> auf sich.
        Der Betrag landet bei ihm unter <b>Gezahlt</b> und begleicht seine Schulden.</p>
     <p>Der <b>Saldo</b> ist die Differenz: ein Minus heißt, die Person schuldet der
        Gruppe noch etwas. Ein Plus heißt, sie hat mehr ausgelegt als fällig war –
        das holt sie beim nächsten Mal wieder rein.</p>
     <p>Die große Zahl oben ist, was insgesamt zusammengekommen und noch nicht
-       ausgegeben ist. So viel könnt ihr also noch verplanen.</p>`],
+       ausgegeben ist. So viel könnt ihr also noch verplanen. Steht dort ein Minus,
+       wurde schon mehr ausgelegt, als bisher zusammengekommen ist.</p>`],
   rangliste: ["So liest sich die Rangliste", `
     <p>Die Medaillen gehen nach <b>erfolgreich abgeschlossenen Wochen</b> – unabhängig davon,
        wonach die Tabelle gerade sortiert ist.</p>
@@ -410,7 +459,7 @@ function ask(title, text, okText = "Löschen") {
       <button class="ghost" onclick="askClose(false)">Abbrechen</button>
       <button class="warn" onclick="askClose(true)">${okText}</button>
     </div>`;
-  box.classList.add("on");
+  box.classList.add("on"); focusSheet(box);
   document.getElementById("backdrop").classList.add("on");
   return new Promise(res => { askResolve = res; });
 }
@@ -418,7 +467,7 @@ function askClose(answer) {
   const box = document.getElementById("ask");
   if (!box.classList.contains("on")) return;
   box.classList.remove("on");
-  document.getElementById("backdrop").classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on"); restoreFocus();
   const r = askResolve; askResolve = null;
   if (r) r(!!answer);
 }
@@ -428,12 +477,13 @@ function showInfo(key) {
   if (!title) return;
   const box = document.getElementById("info");
   box.innerHTML = `<h3>${title}</h3>${body}<button class="ghost" onclick="hideInfo()">Verstanden</button>`;
-  box.classList.add("on");
+  box.classList.add("on"); focusSheet(box);
   document.getElementById("backdrop").classList.add("on");
 }
 function hideInfo() {
+  if (!document.getElementById("info").classList.contains("on")) return;
   document.getElementById("info").classList.remove("on");
-  document.getElementById("backdrop").classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on"); restoreFocus();
 }
 // Eigenes Fenster von unten fuer Menues und kurze Formulare - wie #info,
 // nur mit beliebigem Inhalt.
@@ -441,23 +491,41 @@ function openSheet(html) {
   const box = document.getElementById("form");
   clearTimeout(closeSheet.t);
   box.innerHTML = html;
-  box.classList.add("on");
+  box.classList.add("on"); focusSheet(box);
   document.getElementById("backdrop").classList.add("on");
 }
 function closeSheet() {
   const box = document.getElementById("form");
   if (!box.classList.contains("on")) return;
   box.classList.remove("on");
-  document.getElementById("backdrop").classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on"); restoreFocus();
   // Inhalt nach dem Wegschieben leeren, damit keine Felder doppelt im Dokument stehen
   closeSheet.t = setTimeout(() => { if (!box.classList.contains("on")) box.innerHTML = ""; }, 350);
+}
+// Fokus wandert ins Fenster und beim Schließen zurück - fürs Vorlesen und für Tastaturen.
+let lastFocus = null;
+function focusSheet(box) {
+  if (!lastFocus || !document.contains(lastFocus)) lastFocus = document.activeElement;
+  try { box.focus({ preventScroll: true }); } catch {}
+}
+function restoreFocus() {
+  const el = lastFocus; lastFocus = null;
+  if (el && document.contains(el) && el.focus) try { el.focus({ preventScroll: true }); } catch {}
+}
+// Alle Fenster zu - beim Seitenwechsel und mit Escape. Eine offene Nachfrage
+// gilt dabei als "Abbrechen", es wird also nie etwas ungefragt gelöscht.
+const anySheetOpen = () => ["install", "info", "ask", "form"].some(id => document.getElementById(id)?.classList.contains("on"));
+function closeAllSheets() {
+  if (!anySheetOpen()) return;
+  askClose(false); hideInfo(); closeSheet(); hideInstall();
 }
 const infoBtn = key => `<button class="i" title="Erklärung" onclick="showInfo('${key}')">i</button>`;
 const fmtCredits = n => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
 
 function hideInstall() {
+  if (!document.getElementById("install").classList.contains("on")) return;
   document.getElementById("install").classList.remove("on");
-  document.getElementById("backdrop").classList.remove("on");
+  document.getElementById("backdrop").classList.remove("on"); restoreFocus();
 }
 function laterInstall(remember) { if (remember) localStorage.installLater = Date.now(); hideInstall(); }
 async function doInstall() {
@@ -589,14 +657,13 @@ function viewHome() {
   };
   const board = [...D.members].sort((a, b) => {
     const f = SPALTEN[boardSort.key] || SPALTEN.weeksDone;
-    return (f(b) - f(a)) * boardSort.dir || st[b.id].weeksDone - st[a.id].weeksDone;
+    return (f(b) - f(a)) * boardSort.dir || rang.get(a.id) - rang.get(b.id);
   });
   const th = (key, label, titel) =>
     `<th class="sortable${boardSort.key === key ? " on" : ""}" title="${titel}" onclick="sortBoard('${key}')">${label}${
       boardSort.key === key ? (boardSort.dir === 1 ? " ↓" : " ↑") : ""}</th>`;
 
-  const whoCard = me ? "" : `<div class="card"><h2>Wer bist du?</h2><div class="sub">Einmal auswählen – dieses Gerät merkt sich das.</div>
-    <div class="seg who">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div></div>`;
+  if (!me && !lookOnly()) return welcome();
 
   // Eine Zeile je Person: die drei Wochen davor als Felder, dann die laufende Woche.
   const feld = (m, w) => {
@@ -643,8 +710,8 @@ function viewHome() {
         saldo(st[me])} ${esc(c)}</b></div>` : "";
   const kasseKarte = `<div class="card"><h2>Kasse${infoBtn("kasse")}</h2>
     <div class="flex" style="align-items:flex-end">
-      <div><div class="big ${kasse < 0 ? "bad" : ""}">${money(kasse, c)}</div>
-        <div class="sub">${kasse >= 0 ? "noch zu verplanen" : "mehr ausgegeben als angesammelt"}</div></div>
+      <div><div class="big">${money(kasse, c)}</div>
+        <div class="sub">${kasse >= 0 ? "noch zu verplanen" : "mehr ausgelegt als angesammelt"}</div></div>
       <button class="s" onclick="expenseSheet()">Ausgabe buchen</button></div>
     ${meinSaldo}
     <details class="more" ${kasseOpen ? "open" : ""} ontoggle="kasseOpen=this.open">
@@ -663,10 +730,11 @@ function viewHome() {
     </details>
   </div>`;
 
-  return whoCard + hero(st) + installNudge() + pushNudge() + woche + rangliste + kasseKarte;
+  return hero(st) + (installNudge() || pushNudge()) + woche + rangliste + kasseKarte;
 }
 
 // Oben steht, was antreibt: die eigene Serie und was diese Woche noch fehlt.
+let celebrate = false;
 function hero(st) {
   const s = D.settings;
   if (!me) return "";
@@ -688,7 +756,8 @@ function hero(st) {
           mine.pending ? " (+" + fmtCredits(mine.pending) + " diese Woche)" : ""}
         ${mine.week.canRescue ? ` · ${mine.rescueCost} davon decken die Woche` : ""}${infoBtn("guthaben")}</div>`
     : "";
-  return `<div class="card hero">${headline}
+  const win = celebrate; celebrate = false;
+  return `<div class="card hero${win ? " win" : ""}">${headline}
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div class="sub">${line}</div>${bonus}</div>`;
 }
@@ -752,18 +821,29 @@ const seriesColor = i => "var(--s" + ((i % 8) + 1) + ")";
 // items: [{ label, value, tip }]
 function colBars(items, goal) {
   const max = Math.max(goal, ...items.map(x => x.value), 1);
-  const line = goal ? `<div class="goal" style="bottom:${(goal / max) * 100}%"><em>Ziel ${goal}</em></div>` : "";
-  return `<div class="vbars">${line}${items.map(x => {
+  const line = goal ? goalLine(goal, max) : "";
+  return `<div class="vbars${goal ? " has-goal" : ""}">${line}${items.map(x => {
     const met = goal ? x.value >= goal : x.value > 0;
     return `<div class="vbar" data-tip="${esc(x.tip)}">
       <em>${x.value || ""}</em>
       <i class="${met ? "" : "q"}" style="height:${(x.value / max) * 100}%"></i>
-      <u>${esc(x.label)}</u></div>`;
+      <u>${esc(x.label)}</u>${x.month !== undefined ? `<u class="mo">${esc(x.month)}</u>` : ""}</div>`;
   }).join("")}</div>`;
 }
+// Die Linie geht bis zum Rand, die Beschriftung steht rechts daneben - nie über einer Säule.
+// Die Linie sitzt im Zeichenbereich (unterhalb von padding-top), also wie die Säulen gerechnet.
+const goalLine = (goal, max) =>
+  `<div class="goal" style="bottom:calc(${(goal / max) * 100}% * (124 - 16) / 124 + 24px)"><em>Ziel<br>${goal}</em></div>`;
+// Monat nur dort, wo er wechselt - sonst weiß man bei "07." nicht, ob September oder Oktober.
+const MON = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const monthMarks = weeks => weeks.map((w, i) => {
+  const m = +w.slice(5, 7), prev = i ? +weeks[i - 1].slice(5, 7) : 0;
+  return m !== prev ? MON[m - 1] : "";
+});
 
-const asWeeks = weeks => weeks.map(w => ({
+const asWeeks = weeks => weeks.map((w, i, all) => ({
   label: w.week.slice(8) + ".",
+  month: monthMarks(all.map(x => x.week))[i],
   value: w.units,
   tip: "Woche ab " + dm(w.week) + " · " + w.units + " " + (w.units === 1 ? "Einheit" : "Einheiten"),
 }));
@@ -772,8 +852,9 @@ const asWeeks = weeks => weeks.map(w => ({
 function stackBars(stacked, people, goal) {
   const totals = stacked.map(w => Object.values(w.byMember).reduce((a, b) => a + b, 0));
   const max = Math.max(goal, ...totals, 1);
-  const line = goal ? `<div class="goal" style="bottom:${(goal / max) * 100}%"><em>Ziel ${goal}</em></div>` : "";
-  return `<div class="vbars">${line}${stacked.map((w, wi) => {
+  const line = goal ? goalLine(goal, max) : "";
+  const months = monthMarks(stacked.map(w => w.week));
+  return `<div class="vbars${goal ? " has-goal" : ""}">${line}${stacked.map((w, wi) => {
     const parts = people.map((p, i) => ({ p, i, n: w.byMember[p.id] || 0 })).filter(x => x.n);
     const names = parts.map(x => x.p.name + ": " + x.n).join(" · ");
     return `<div class="vbar" data-tip="Woche ab ${esc(dm(w.week))} · ${totals[wi]} gesamt${names ? " · " + esc(names) : ""}">
@@ -781,7 +862,7 @@ function stackBars(stacked, people, goal) {
       <div class="vstack" style="height:${(totals[wi] / max) * 100}%">
         ${parts.map(x => `<i style="height:${(x.n / totals[wi]) * 100}%;background:${seriesColor(x.i)}"></i>`).join("")}
       </div>
-      <u>${w.week.slice(8)}.</u></div>`;
+      <u>${w.week.slice(8)}.</u><u class="mo">${months[wi]}</u></div>`;
   }).join("")}</div>`;
 }
 
@@ -798,7 +879,11 @@ function viewStats() {
   if (!D.members.length) return onboarding();
   if (!R) {
     if (!reportFailed) loadReport();
-    return `<div class="card"><h2>Zahlen</h2><div class="sub">${reportFailed ? "Konnte nicht geladen werden." : "Rechne …"}</div></div>`;
+    return reportFailed
+      ? `<div class="card"><h2>Zahlen</h2><div class="sub">Konnte nicht geladen werden.</div>
+         <button class="ghost" onclick="reportFailed=false;render()">Noch einmal versuchen</button></div>`
+      : `<div class="card" aria-busy="true"><div class="tiles">${'<div class="skel" style="height:64px"></div>'.repeat(4)}</div></div>
+         <div class="card"><div class="skel skel-line" style="width:45%"></div><div class="skel" style="height:110px;margin-top:14px"></div></div>`;
   }
 
   const mine = statsWho === "me" && me && R.members[me];
@@ -818,7 +903,7 @@ function viewStats() {
     <div class="tiles">
       <div class="tile"><b>${nf(d.sessions)}</b><span>Einheiten</span></div>
       <div class="tile"><b>${hours(d.hours)}</b><span>Stunden</span></div>
-      <div class="tile"><b>${nf(d.km)}</b><span>Kilometer</span></div>
+      <div class="tile"><b>${nf(d.km >= 100 ? Math.round(d.km) : d.km)}</b><span>Kilometer</span></div>
       <div class="tile"><b>${nf(d.climb)}</b><span>Höhenmeter</span></div>
     </div>
     <div class="hint">${d.withData < d.sessions
@@ -830,7 +915,17 @@ function viewStats() {
     ${mine ? colBars(asWeeks(d.weeks), R.required) : stackBars(R.team.stacked, people, R.required * Math.max(1, people.length))}
     ${mine ? "" : `<div class="legend">${people.slice(0, 8).map((p, i) =>
       `<span><b style="background:${seriesColor(i)}"></b>${esc(p.name)}</span>`).join("")}</div>`}
-    <div class="hint">Die letzten ${d.weeks.length} Wochen. Graue Säulen haben das Ziel verfehlt.</div></div>`;
+    <div class="hint">Die letzten ${d.weeks.length} Wochen. ${mine
+      ? "Graue Säulen haben das Ziel verfehlt."
+      : `Die Linie ist das Ziel der ganzen Gruppe: ${R.required} je Person.`}</div>
+    <details class="more"><summary>Wochen als Tabelle</summary><div class="tbl-wrap"><table style="margin-top:6px">
+      ${mine
+        ? `<tr><th>Woche ab</th><th>Einheiten</th><th>Ziel</th></tr>${[...d.weeks].reverse().map(w =>
+            `<tr><td>${dm(w.week)}</td><td>${w.units}</td><td>${w.units >= R.required ? "✓ geschafft" : "– verfehlt"}</td></tr>`).join("")}`
+        : `<tr><th>Woche ab</th>${people.slice(0, 8).map(p => `<th>${esc(p.name)}</th>`).join("")}<th>Gesamt</th></tr>${
+            [...R.team.stacked].reverse().map(w => `<tr><td>${dm(w.week)}</td>${people.slice(0, 8).map(p =>
+              `<td>${w.byMember[p.id] || "–"}</td>`).join("")}<td><b>${Object.values(w.byMember).reduce((a, b) => a + b, 0)}</b></td></tr>`).join("")}`}
+    </table></div></details></div>`;
 
   const sportarten = d.sports.length ? `<div class="card"><h2>Sportarten</h2>
     ${rowBars(d.sports.map(sp => ({
@@ -973,10 +1068,22 @@ function viewFeed() {
         ? "🤒 Krankmeldung (" + (e.units || 1) + " " + ((e.units || 1) === 1 ? "Einheit" : "Einheiten") + ")"
         : sportIcon(e.sport) + " <b>" + (e.sport ? esc(e.sport) : "Sporteinheit") + "</b>"}</div>
       ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
-      ${meta.length ? `<div style="margin-top:4px">${meta.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("")}</div>` : ""}
+      ${metrics(meta)}
       ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">` : ""}
     </div>`;
   }).join("")).join("") + older;
+}
+
+// Messwerte: die drei wichtigsten groß, der Rest klein darunter. Die Werte
+// selbst kommen unverändert aus der Datei bzw. von intervals.icu.
+const MAIN_METRICS = ["Distanz", "Dauer", "Tempo", "Schnitt"];
+function metrics(meta) {
+  if (!meta.length) return "";
+  const main = meta.filter(([k]) => MAIN_METRICS.includes(k)).slice(0, 3);
+  const rest = meta.filter(x => !main.includes(x));
+  const big = main.length ? `<div class="mrow">${main.map(([k, v]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>` : "";
+  const small = rest.length ? `<div class="mmore">${rest.map(([k, v]) => `${esc(k)} ${esc(v)}`).join(" · ")}</div>` : "";
+  return big + small;
 }
 
 // Feste Farbe je Person - dieselbe Reihenfolge wie in den Diagrammen.
@@ -1017,6 +1124,15 @@ async function setupMembers() {
   toast("Angelegt.");
   load();
 }
+// Bis eine Person gewählt ist, zeigt Start nur diese eine Frage.
+const lookOnly = () => { try { return sessionStorage.lookOnly === "1"; } catch { return false; } };
+function welcome() {
+  return `<div class="card welcome"><img src="/icon-192.png?v=__V__" alt="">
+    <h2>Wer bist du?</h2>
+    <div class="sub">Einmal auswählen – dieses Handy merkt sich das. Kein Konto, kein Passwort.</div>
+    <div class="seg who">${D.members.map(m => `<button onclick="pickMe(${m.id})">${esc(m.name)}</button>`).join("")}</div>
+    <button class="link" style="margin-top:10px" onclick="try{sessionStorage.lookOnly='1'}catch{};render()">Erst mal nur umsehen</button></div>`;
+}
 function pickMe(id) { me = id; localStorage.me = id; syncPushMember(); render(); }
 
 /* ---------- Gemeinsame Einheit vorschlagen ---------- */
@@ -1044,9 +1160,9 @@ function planCards() {
         <div class="sub">${relDay(p.date)}${p.time ? ", " + esc(p.time) + " Uhr" : ""} · von ${esc(nameOf(p.member_id))}</div></div>
         ${p.member_id === me ? `<button class="x" onclick="delPlan(${p.id})">✕</button>` : ""}</div>
       ${p.note ? `<div class="sub" style="margin-top:4px">${esc(p.note)}</div>` : ""}
-      <div class="sub" style="margin-top:6px">${names.length ? "Dabei: " + names.map(esc).join(", ") : "Noch niemand dabei."}</div>
-      ${me ? `<button class="${inIt ? "ghost" : ""}" style="margin-top:8px" onclick="joinPlan(${p.id}, ${inIt})">
-        ${inIt ? "Doch nicht" : "Bin dabei"}</button>` : ""}</div>`;
+      <div class="flex" style="margin-top:8px"><div class="sub">${names.length ? "Dabei: " + names.map(esc).join(", ") : "Noch niemand dabei."}</div>
+      ${me ? `<button class="s${inIt ? "" : " go"}" onclick="joinPlan(${p.id}, ${inIt})">
+        ${inIt ? "Doch nicht" : "Bin dabei"}</button>` : ""}</div></div>`;
   }).join("");
 
   // Der Knopf zum Vorschlagen steht in der Leiste darunter (filterBar).
@@ -1379,15 +1495,22 @@ async function save() {
       await load();
       return;
     }
+    const leftBefore = me && D.stats?.[me]?.week?.left;
     await api("entry", "POST", body);
     if (body.sport) localStorage.lastSport = body.sport;
     R = null;                                   // Zahlen neu rechnen lassen
     crew = [];
     if (!me) { me = body.member_id; localStorage.me = me; }
     pending = null;
-    toast(kind === "sick" ? "Krankmeldung gespeichert." : "Einheit gespeichert. 💪");
     if (location.hash === "#add" || location.hash === "") location.hash = "#home";
     await load();
+    // Die Zahlen kommen weiter vom Server - hier wird nur verglichen, was er vorher und nachher sagt.
+    const after = me && D.stats?.[me];
+    const madeIt = leftBefore > 0 && after && after.week.left === 0;
+    if (madeIt) { celebrate = true; render(); }
+    toast(madeIt
+      ? "Woche geschafft" + (after.streak > 1 ? " – Serie: " + after.streak + " Wochen" : "") + " 🔥"
+      : kind === "sick" ? "Krankmeldung gespeichert." : "Einheit gespeichert. 💪");
   } catch (e) { toast(e.message); }
   finally {
     busy = false;
@@ -1515,12 +1638,12 @@ function viewSetGroup() {
     <button onclick="saveSettings()">Regeln speichern</button></div>
 
   <div class="card"><h2>Teilnehmer</h2>
-    ${D.members.map(m => `<div class="row">
-      <input value="${esc(m.name)}" aria-label="Name" onchange="renameMember(${m.id}, this.value)">
-      <input type="date" value="${esc(m.joined || s.start)}" title="dabei seit" aria-label="dabei seit" onchange="rejoinMember(${m.id}, this.value)">
-      <button class="x" title="Teilnehmer löschen" onclick="delMember(${m.id})">✕</button></div>`).join("")}
-    <div class="row"><input id="nm" placeholder="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
-    <div class="hint">Das zweite Feld ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
+    <div class="plist">${D.members.map(m => `<button class="prow" onclick="memberSheet(${m.id})">
+      <span class="av"${avatarStyle(m.id)}>${esc(m.name.slice(0, 1).toUpperCase())}</span>
+      <span class="pt"><b>${esc(m.name)}</b><span>dabei seit ${longDate(m.joined || s.start)}</span></span>
+      <span class="chev">›</span></button>`).join("")}</div>
+    <div class="row" style="margin-top:8px"><input id="nm" placeholder="Neuer Teilnehmer" aria-label="Neuer Teilnehmer"><button class="s" onclick="addMember()">Hinzufügen</button></div>
+    <div class="hint">„Dabei seit“ ist der Tag, ab dem gezählt wird – wer später dazukommt, zahlt nicht rückwirkend.</div></div>
 
   <div class="card"><h2>Guthaben${infoBtn("guthaben")}</h2>
     <div class="flex"><div><b>Einheiten über dem Ziel sammeln</b>
@@ -1528,9 +1651,8 @@ function viewSetGroup() {
       ${sw(!!s.bonus, "toggleBonus()", "Guthaben sammeln")}</div>
     ${s.bonus ? `
       <label for="creditSteps">Was bringen Einheiten über dem Wochenziel?</label>
-      <div class="row"><input id="creditSteps" value="${(s.creditSteps || []).map(x => String(x).replace(".", ",")).join("  ")}"
+      <input id="creditSteps" value="${(s.creditSteps || []).map(x => String(x).replace(".", ",")).join("  ")}"
           placeholder="1  0,5  0,3" autocomplete="off">
-        <button class="s" onclick="saveSteps()">Merken</button></div>
       <div class="hint">Ein Wert je zusätzlicher Einheit, durch Leerzeichen getrennt. Bei Ziel ${s.required}
         bringt also die ${s.required + 1}. Einheit ${fmtCredits((s.creditSteps || [])[0] ?? 0)},
         die ${s.required + 2}. ${fmtCredits((s.creditSteps || [])[1] ?? 0)}${
@@ -1538,12 +1660,11 @@ function viewSetGroup() {
         alles darüber nichts mehr.</div>
 
       <label for="creditMax">Höchstens ansparen</label>
-      <div class="row"><input id="creditMax" type="number" inputmode="decimal" min="1" max="99" step="0.5" value="${s.creditMax}">
-        <button class="s" onclick="saveCreditMax()">Merken</button></div>
+      <input id="creditMax" type="number" inputmode="decimal" min="1" max="99" step="0.5" value="${s.creditMax}">
 
       <label for="bonusCost">Wie viele Guthaben decken eine fehlende Einheit?</label>
-      <div class="row"><input id="bonusCost" type="number" inputmode="numeric" min="1" max="20" value="${s.bonusCost}">
-        <button class="s" onclick="saveBonusCost()">Merken</button></div>` : ""}
+      <input id="bonusCost" type="number" inputmode="numeric" min="1" max="20" value="${s.bonusCost}">
+      <button onclick="saveCredit()">Guthaben speichern</button>` : ""}
     <div class="hint">Guthaben entsteht nur aus Einheiten über dem Wochenziel. Fehlt später eine Einheit,
       springen ${s.bonusCost} davon ein, aber nie rückwirkend und nie für eine ganze Woche.
       Das Kleingedruckte steht hinter dem i.
@@ -1557,7 +1678,7 @@ function viewSetGroup() {
       ${sw(!!s.nudges, "toggleNudges()", "Anstupser bei Rückstand")}</div>
     ${s.nudges ? `
       <div class="hint">Ohne freigegebenen Standort rechnet der Wetterhinweis mit ${esc(s.place)}; freigeben lässt er sich
-        unter <a href="#set/ich" style="color:var(--acc)">Ich und dieses Gerät</a>. Regnet es, schlägt die App
+        unter <a href="#set/ich" style="color:var(--acct)">Ich und dieses Gerät</a>. Regnet es, schlägt die App
         etwas drinnen vor, und zwar das, was du ohnehin machst.</div>
       <button class="ghost" onclick="previewNudge()">Beispielnachricht ansehen</button>
       <div id="nudgePreview" class="sub"></div>` : ""}
@@ -1617,6 +1738,14 @@ const saveSteps = guard(async () => {
   toast("Gemerkt.");
   await load();
 });
+// Alle drei Guthaben-Werte mit einem Knopf - an den Server gehen dieselben Felder wie vorher.
+const saveCredit = guard(async () => {
+  const list = parseSteps($("#creditSteps").value);
+  if (!list.length) return toast("Mindestens ein Wert, z. B. 1  0,5  0,3");
+  await api("settings", "POST", { creditSteps: list, creditMax: +$("#creditMax").value, bonusCost: +$("#bonusCost").value });
+  toast("Gespeichert.");
+  await load();
+});
 const saveCreditMax = guard(async () => {
   await api("settings", "POST", { creditMax: +$("#creditMax").value });
   toast("Gemerkt.");
@@ -1672,6 +1801,30 @@ const previewNudge = guard(async () => {
 const addMember = guard(async () => { const v = $("#nm").value.trim(); if (!v) return; await api("member", "POST", { name: v, joined: todayISO() }); await load(); });
 const renameMember = guard(async (id, name) => { await api("member", "POST", { id, name }); await load(); });
 const rejoinMember = guard(async (id, joined) => { const m = D.members.find(x => x.id === id); await api("member", "POST", { id, name: m.name, joined }); await load(); });
+const longDate = iso => new Date(iso + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
+// Name und Startdatum einer Person - dieselben zwei Aufrufe wie vorher, nur gesammelt.
+function memberSheet(id) {
+  const m = D.members.find(x => x.id === id);
+  if (!m) return;
+  openSheet(`<h3>${esc(m.name)}</h3>
+    <label for="pName">Name</label><input id="pName" value="${esc(m.name)}" autocomplete="off">
+    <label for="pJoined">Dabei seit</label><input id="pJoined" type="date" value="${esc(m.joined || D.settings.start)}">
+    <div class="hint">Ab diesem Tag zählt die Person mit – wer später dazukommt, zahlt nicht rückwirkend.</div>
+    <button onclick="saveMember(${id})">Speichern</button>
+    <button class="ghost" onclick="closeSheet()">Abbrechen</button>
+    <button class="danger" onclick="closeSheet();delMember(${id})">Teilnehmer entfernen</button>`);
+}
+const saveMember = guard(async id => {
+  const m = D.members.find(x => x.id === id);
+  const name = $("#pName").value.trim(), joined = $("#pJoined").value;
+  if (!name) return toast("Der Name fehlt.");
+  const body = { id, name };
+  if (joined && joined !== (m.joined || D.settings.start)) body.joined = joined;   // nur, wenn wirklich geändert
+  if (name !== m.name || body.joined) await api("member", "POST", body);
+  closeSheet();
+  toast("Gespeichert.");
+  await load();
+});
 const delMember = guard(async id => {
   const m = D.members.find(x => x.id === id);
   if (!await ask("Teilnehmer löschen?",
@@ -1716,6 +1869,7 @@ const uploadPhoto = guard(async file => {
   toast("Verkleinere das Bild …");
   const photo = await shrink(file);
   await api("entry/" + photoFor + "/photo", "POST", { photo });
+  photoCache.delete(String(photoFor));
   photoFor = null;
   toast("Foto angehängt.");
   await load();
@@ -1781,12 +1935,13 @@ function render() {
   const back = page.startsWith("set/")
     ? `<a class="back" href="#set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Mehr</a>` : "";
   const app = $("#app");
+  app.removeAttribute("aria-busy");
   app.innerHTML = back + `<header class="top"><h1>${title}</h1><img class="dot" src="/icon.svg?v=__V__" alt="Das Programm"></header>` + views[page]();
   // Kurzes Einblenden nur beim Seitenwechsel, nicht bei jedem Neuzeichnen.
   if (page !== lastPage) { app.classList.remove("in"); void app.offsetWidth; app.classList.add("in"); if (lastPage) scrollTo(0, 0); }
   lastPage = page;
   const base = page.split("/")[0];
-  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.hash === "#" + base));
+  document.querySelectorAll("nav a").forEach(a => { const on = a.hash === "#" + base; a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
   if (page === "add") {
     setKind(kind); paintCrew();
     const w = $("#who"); if (w) w.onchange = paintCrew;
@@ -1794,10 +1949,28 @@ function render() {
     const dt = $("#date"); if (dt) dt.oninput = paintPicks;
     paintPicks();
   }
-  document.querySelectorAll("img[data-photo]").forEach(async img => {
-    try { img.src = await (await api("photo/" + img.dataset.photo)).text(); } catch { img.remove(); }
-  });
+  document.querySelectorAll("img[data-photo]").forEach(showPhoto);
 }
+// Fotos: ein geladenes Bild bleibt im Speicher, neu geholt wird es nur, wenn es
+// sich geändert hat. Und erst, wenn es gleich auf den Bildschirm kommt.
+const photoCache = new Map();
+const fetchPhoto = (id, img) => {
+  if (!photoCache.has(id)) photoCache.set(id, api("photo/" + id).then(r => r.text()).catch(e => { photoCache.delete(id); throw e; }));
+  photoCache.get(id).then(src => { img.src = src; }, () => img.remove());
+};
+const photoWatch = "IntersectionObserver" in window
+  ? new IntersectionObserver(list => list.forEach(x => {
+      if (!x.isIntersecting) return;
+      photoWatch.unobserve(x.target);
+      fetchPhoto(x.target.dataset.photo, x.target);
+    }), { rootMargin: "800px 0px" })
+  : null;
+function showPhoto(img) {
+  const id = img.dataset.photo;
+  if (photoCache.has(id) || !photoWatch) return fetchPhoto(id, img);
+  photoWatch.observe(img);
+}
+
 // Ein Hinweisfeld für alle Diagramme - antippen reicht, Zeigen auch.
 (() => {
   const tip = () => document.getElementById("tip");
@@ -1823,7 +1996,13 @@ function render() {
   addEventListener("pointerover", (e) => { if (e.pointerType === "mouse") at(e); }, { passive: true });
 })();
 
-addEventListener("hashchange", () => { if (location.hash !== "#add") editId = null; render(); });
+addEventListener("hashchange", () => { closeAllSheets(); if (location.hash !== "#add") editId = null; render(); });
+addEventListener("keydown", e => { if (e.key === "Escape" && anySheetOpen()) { e.preventDefault(); closeAllSheets(); } });
+// Den aktiven Tab noch einmal antippen: nach oben, wie in jeder App.
+document.querySelector("nav").addEventListener("click", e => {
+  const a = e.target.closest("a");
+  if (a && a.hash === location.hash) { e.preventDefault(); scrollTo({ top: 0, behavior: "smooth" }); }
+});
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 // Beim Zurückkommen frisch laden - aber nicht, während jemand ein Formular
 // ausfüllt. Sonst ist die halb getippte Eingabe weg, nur weil man kurz in
