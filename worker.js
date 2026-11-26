@@ -1,5 +1,5 @@
 import { sendPush, b64u } from "./push.js";
-import { localParts, slotFor, favourites, buildMessage, entryMessage, geocode, forecast, behindHint } from "./nudge.js";
+import { localParts, slotFor, favourites, buildMessage, entryMessage, geocode, forecast, behindHint, kudosMessage, commentMessage } from "./nudge.js";
 import { settle } from "./stats.js";
 import * as icu from "./icu.js";
 import { report } from "./report.js";
@@ -74,6 +74,11 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER, date TEXT NOT NULL, kind TEXT, text TEXT, created TEXT)",
   // Eine Verbindung je Person. Der Schluessel verlaesst die Datenbank nie.
   "CREATE TABLE IF NOT EXISTS links(member_id INTEGER PRIMARY KEY, athlete_id TEXT NOT NULL, api_key TEXT NOT NULL, name TEXT, last_check TEXT, connected TEXT)",
+  // Kudos und Kommentare haengen am Beitrag. Bei einer gemeinsamen Einheit
+  // ist das der Eintrag der Person, die eingetragen hat (kleinste id der Gruppe).
+  "CREATE TABLE IF NOT EXISTS kudos(entry_id INTEGER NOT NULL, member_id INTEGER NOT NULL, created TEXT, PRIMARY KEY(entry_id, member_id))",
+  "CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY AUTOINCREMENT, entry_id INTEGER NOT NULL, member_id INTEGER NOT NULL, text TEXT NOT NULL, created TEXT)",
+  "CREATE INDEX IF NOT EXISTS idx_comments_entry ON comments(entry_id, id)",
 ];
 
 const DEFAULTS = { required: 2, fine: 20, currency: "€", start: "", sickMax: 2, nudges: 1, place: "Nürnberg", tz: "Europe/Berlin", bonus: 0, bonusCost: 3, bonusSince: "", creditSteps: [1, 0.5, 0.3], creditMax: 9 };
@@ -101,6 +106,9 @@ const ALTERS = [
   "ALTER TABLE expenses ADD COLUMN member_id INTEGER",
   "ALTER TABLE members ADD COLUMN lat REAL",
   "ALTER TABLE members ADD COLUMN lon REAL",
+  // Wer welche Pushes zu Kudos und Kommentaren will: all, mine oder off (leer = all)
+  "ALTER TABLE members ADD COLUMN push_kudos TEXT",
+  "ALTER TABLE members ADD COLUMN push_comments TEXT",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext_id) WHERE ext_id IS NOT NULL",
 ];
 
@@ -208,6 +216,47 @@ async function notify(env, db, entry, who, fromDevice) {
   );
 }
 
+// Der Beitrag hinter einem Eintrag: bei einer gemeinsamen Einheit alle
+// Eintraege der Gruppe, Schluessel ist der Eintrag der eintragenden Person.
+async function postOf(db, entryId) {
+  const row = await db.prepare("SELECT id,member_id,kind,sport,group_id FROM entries WHERE id=?").bind(entryId).first();
+  if (!row) return null;
+  const rows = row.group_id
+    ? (await db.prepare("SELECT id,member_id FROM entries WHERE group_id=? ORDER BY id").bind(row.group_id).all()).results
+    : [row];
+  return { key: rows[0].id, ids: rows.map((r) => r.id), crew: rows.map((r) => r.member_id), author: rows[0].member_id,
+           kind: row.kind, sport: row.sport };
+}
+
+// Wer zu Kudos oder Kommentaren einen Push bekommt. Standard: die ganze
+// Gruppe. Jeder kann es fuer sich auf "nur meine Eintraege" oder "aus" stellen.
+// involved: Personen, die es direkt betrifft (Eintrag, beim Kommentar auch wer mitredet)
+const PUSH_PREFS = ["all", "mine", "off"];
+async function audience(db, column, actorId, involved) {
+  const { results } = await db.prepare(`SELECT id,${column} AS pref FROM members WHERE id != ?`).bind(actorId).all();
+  return results
+    .filter((m) => {
+      const pref = PUSH_PREFS.includes(m.pref) ? m.pref : "all";
+      return pref === "all" || (pref === "mine" && involved.includes(m.id));
+    })
+    .map((m) => m.id);
+}
+
+// Push an bestimmte Personen - an alle ihre Geraete, ausser dem, von dem es kam.
+async function pushTo(env, db, memberIds, fromDevice, payload) {
+  if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE || !memberIds.length) return 0;
+  const { results } = await db
+    .prepare(`SELECT * FROM subs WHERE device != ? AND member_id IN (${memberIds.map(() => "?").join(",")})`)
+    .bind(fromDevice || "", ...memberIds).all();
+  await Promise.all(results.map(async (s) => {
+    try {
+      const status = await sendPush(env, s, payload(s.member_id));
+      if (status === 404 || status === 410) await db.prepare("DELETE FROM subs WHERE device=?").bind(s.device).run();
+    } catch (e) { console.log("push failed", s.device, String(e)); }
+  }));
+  return results.length;
+}
+
 // Benachrichtigung zu einem Vorschlag fuer eine gemeinsame Einheit.
 async function notifyPlan(env, db, plan, proposer, fromDevice) {
   if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return;
@@ -276,8 +325,8 @@ export default {
       if (path === "/api/state" && method === "GET") {
         const all = (sql) => db.prepare(sql).all().then((r) => r.results);
         const settings = await loadSettings(db);
-        const [members, entries, expenses, plans, joins, events, links] = await Promise.all([
-          all("SELECT id,name,joined,(lat IS NOT NULL) AS hasGeo FROM members ORDER BY id"),
+        const [members, entries, expenses, plans, joins, events, links, kudos, comments] = await Promise.all([
+          all("SELECT id,name,joined,(lat IS NOT NULL) AS hasGeo,push_kudos,push_comments FROM members ORDER BY id"),
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
@@ -286,6 +335,8 @@ export default {
           all("SELECT plan_id,member_id FROM plan_joins"),
           all("SELECT id,member_id,date,kind,text FROM events ORDER BY date DESC, id DESC LIMIT 60"),
           all("SELECT member_id,name,last_check,connected FROM links"),
+          all("SELECT entry_id,member_id FROM kudos ORDER BY created"),
+          all("SELECT id,entry_id,member_id,text,created FROM comments ORDER BY id"),
         ]);
         return json({
           settings,
@@ -296,6 +347,8 @@ export default {
           events,
           stats: settle({ members, entries, expenses, settings, today: today() }),
           links,
+          kudos,
+          comments,
           vapidPublicKey: env.VAPID_PUBLIC || null,
         });
       }
@@ -381,6 +434,15 @@ export default {
         const table = { entry: "entries", member: "members", expense: "expenses" }[m[1]];
         if (m[1] === "entry") {
           const row = await db.prepare("SELECT group_id FROM entries WHERE id=?").bind(m[2]).first();
+          // Kudos und Kommentare gehen mit dem Beitrag
+          const post = row ? await postOf(db, m[2]) : null;
+          if (post) {
+            const marks = post.ids.map(() => "?").join(",");
+            await db.batch([
+              db.prepare(`DELETE FROM kudos WHERE entry_id IN (${marks})`).bind(...post.ids),
+              db.prepare(`DELETE FROM comments WHERE entry_id IN (${marks})`).bind(...post.ids),
+            ]);
+          }
           if (row?.group_id) {
             await db.prepare("DELETE FROM entries WHERE group_id=?").bind(row.group_id).run();
             return json({ ok: true });
@@ -389,6 +451,8 @@ export default {
         await db.prepare(`DELETE FROM ${table} WHERE id=?`).bind(m[2]).run();
         if (m[1] === "member") {
           await db.batch([
+            db.prepare("DELETE FROM kudos WHERE member_id=? OR entry_id IN (SELECT id FROM entries WHERE member_id=?)").bind(m[2], m[2]),
+            db.prepare("DELETE FROM comments WHERE member_id=? OR entry_id IN (SELECT id FROM entries WHERE member_id=?)").bind(m[2], m[2]),
             db.prepare("DELETE FROM entries WHERE member_id=?").bind(m[2]),
             db.prepare("UPDATE subs SET member_id=NULL WHERE member_id=?").bind(m[2]),
             db.prepare("DELETE FROM plan_joins WHERE member_id=?").bind(m[2]),
@@ -417,6 +481,20 @@ export default {
           .bind(name, isDate(body.joined) ? body.joined : today())
           .run();
         return json({ ok: true, id: res.meta?.last_row_id });
+      }
+
+      // Welche Pushes zu Kudos und Kommentaren jemand bekommen will
+      if ((m = path.match(/^\/api\/member\/(\d+)\/prefs$/)) && method === "POST") {
+        const sets = [], vals = [];
+        for (const [key, col] of [["kudos", "push_kudos"], ["comments", "push_comments"]]) {
+          if (!(key in body)) continue;
+          if (!PUSH_PREFS.includes(body[key])) return json({ error: "Unbekannte Einstellung." }, 400);
+          sets.push(`${col}=?`); vals.push(body[key]);
+        }
+        if (!sets.length) return json({ error: "Nichts zu ändern." }, 400);
+        const res = await db.prepare(`UPDATE members SET ${sets.join(",")} WHERE id=?`).bind(...vals, m[1]).run();
+        if (!res.meta?.changes) return json({ error: "Teilnehmer unbekannt." }, 404);
+        return json({ ok: true });
       }
 
       // --- Ausgaben ---
@@ -563,6 +641,76 @@ export default {
           return json({ error: "Subscription abgelaufen – bitte neu aktivieren." }, 410);
         }
         return json({ ok: status < 300, status });
+      }
+
+      // --- Kudos: an- und abschalten ---
+      if ((m = path.match(/^\/api\/entry\/(\d+)\/kudos$/)) && method === "POST") {
+        const memberId = Number(body.member_id);
+        const giver = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
+        if (!giver) return json({ error: "Erst auswählen, wer du bist." }, 400);
+        const post = await postOf(db, m[1]);
+        if (!post) return json({ error: "Eintrag unbekannt." }, 404);
+        if (post.crew.includes(memberId)) return json({ error: "Für die eigene Einheit gibt es keine Kudos." }, 400);
+        if (body.off) {
+          await db.prepare("DELETE FROM kudos WHERE entry_id=? AND member_id=?").bind(post.key, memberId).run();
+          return json({ ok: true, entry_id: post.key, on: false });
+        }
+        const res = await db.prepare("INSERT OR IGNORE INTO kudos(entry_id,member_id,created) VALUES(?,?,?)")
+          .bind(post.key, memberId, new Date().toISOString()).run();
+        // Pro Person und Beitrag nur einmal pushen - auch wenn jemand an- und wieder abschaltet.
+        const first = res.meta?.changes
+          ? (await db.prepare("INSERT OR IGNORE INTO cache(k,v,exp) VALUES(?,?,NULL)")
+              .bind(`kudos-push:${post.key}:${memberId}`, "1").run()).meta?.changes
+          : 0;
+        if (first) {
+          const { results: all } = await db
+            .prepare("SELECT m.name FROM kudos k JOIN members m ON m.id=k.member_id WHERE k.entry_id=? ORDER BY k.created DESC")
+            .bind(post.key).all();
+          const givers = all.map((r) => r.name);
+          const { results: crewRows } = await db
+            .prepare(`SELECT id,name FROM members WHERE id IN (${post.crew.map(() => "?").join(",")})`).bind(...post.crew).all();
+          const owners = post.crew.map((id) => crewRows.find((r) => r.id === id)?.name).filter(Boolean);
+          const to = await audience(db, "push_kudos", memberId, post.crew);
+          ctx.waitUntil(pushTo(env, db, to, clean(body.device, 64), (rid) => ({
+            title: "Das Programm",
+            body: kudosMessage({ givers, sport: post.sport, kind: post.kind, crew: post.crew.length,
+              mine: post.crew.includes(rid), owners }),
+            tag: "kudos-" + post.key, url: "/#feed",
+          })).catch((e) => console.log("kudos push failed", String(e))));
+        }
+        return json({ ok: true, entry_id: post.key, on: true });
+      }
+
+      // --- Kommentar schreiben ---
+      if ((m = path.match(/^\/api\/entry\/(\d+)\/comment$/)) && method === "POST") {
+        const memberId = Number(body.member_id);
+        const writer = await db.prepare("SELECT id,name FROM members WHERE id=?").bind(memberId).first();
+        if (!writer) return json({ error: "Erst auswählen, wer du bist." }, 400);
+        const text = String(body.text ?? "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, 500);
+        if (!text) return json({ error: "Kommentar ist leer." }, 400);
+        const post = await postOf(db, m[1]);
+        if (!post) return json({ error: "Eintrag unbekannt." }, 404);
+        const res = await db.prepare("INSERT INTO comments(entry_id,member_id,text,created) VALUES(?,?,?,?)")
+          .bind(post.key, memberId, text, new Date().toISOString()).run();
+        const id = res.meta?.last_row_id;
+
+        // Wer den Eintrag gemacht hat und wer schon mitredet, erfaehrt davon.
+        const { results: talkers } = await db.prepare("SELECT DISTINCT member_id FROM comments WHERE entry_id=?").bind(post.key).all();
+        const involved = [...new Set([...post.crew, ...talkers.map((t) => t.member_id)])];
+        const to = await audience(db, "push_comments", memberId, involved);
+        const author = await db.prepare("SELECT name FROM members WHERE id=?").bind(post.author).first();
+        ctx.waitUntil(pushTo(env, db, to, clean(body.device, 64), (rid) => ({
+          ...commentMessage({ who: writer.name, text, sport: post.sport, kind: post.kind, crew: post.crew.length,
+            mine: post.crew.includes(rid), author: author?.name }),
+          tag: "comment-" + post.key, url: "/#feed",
+        })).catch((e) => console.log("comment push failed", String(e))));
+        return json({ ok: true, id, entry_id: post.key });
+      }
+
+      // --- Kommentar loeschen ---
+      if ((m = path.match(/^\/api\/comment\/(\d+)$/)) && method === "DELETE") {
+        await db.prepare("DELETE FROM comments WHERE id=?").bind(m[1]).run();
+        return json({ ok: true });
       }
 
       // Gemeinsame Einheit vorschlagen
