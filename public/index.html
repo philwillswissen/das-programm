@@ -1231,10 +1231,19 @@ const delComment = guard(async id => {
 
 // Messwerte: die drei wichtigsten groß, der Rest klein darunter. Die Werte
 // selbst kommen unverändert aus der Datei bzw. von intervals.icu.
+// Mit Leistungsmesser zählen die Watt: NP und Ø Leistung ersetzen Strecke,
+// Schnitt und Anstieg. Gespeichert bleibt alles, die Zahlen-Seite rechnet
+// weiter mit den Kilometern.
 const MAIN_METRICS = ["Distanz", "Dauer", "Tempo", "Schnitt"];
+const POWER_METRICS = ["NP", "Ø Leistung", "Dauer"];
+const HIDDEN_WITH_POWER = ["Distanz", "Tempo", "Schnitt", "Anstieg"];
 function metrics(meta) {
   if (!meta.length) return "";
-  const main = meta.filter(([k]) => MAIN_METRICS.includes(k)).slice(0, 3);
+  const power = meta.some(([k]) => k === "NP" || k === "Ø Leistung");
+  if (power) meta = meta.filter(([k]) => !HIDDEN_WITH_POWER.includes(k));
+  const order = power ? POWER_METRICS : MAIN_METRICS;
+  const main = meta.filter(([k]) => order.includes(k))
+    .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).slice(0, 3);
   const rest = meta.filter(x => !main.includes(x));
   const big = main.length ? `<div class="mrow">${main.map(([k, v]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>` : "";
   const small = rest.length ? `<div class="mmore">${rest.map(([k, v]) => `${esc(k)} ${esc(v)}`).join(" · ")}</div>` : "";
@@ -1530,13 +1539,15 @@ function fromPoints(points, latAttr) {
 // gerade im Feld steht. Wechselt sie, rechnet buildMeta neu.
 function buildMeta(raw, sport) {
   if (!raw) return null;
-  const { km = 0, sec = 0, climb = 0, hr = 0, kcal = 0 } = raw;
+  const { km = 0, sec = 0, climb = 0, hr = 0, kcal = 0, np = 0, watts = 0 } = raw;
   const out = {};
   if (km > 0.05) out.Distanz = km.toFixed(2).replace(".", ",") + " km";
   if (sec > 30) out.Dauer = fmtDur(sec);
   const sp = speedOf(sec, km, sport);
   if (sp) out[sp[0]] = sp[1];
   if (climb >= 20) out["Anstieg"] = climb + " hm";
+  if (np > 0) out.NP = Math.round(np) + " W";
+  if (watts > 0) out["Ø Leistung"] = Math.round(watts) + " W";
   if (hr) out.Puls = Math.round(hr) + " bpm";
   if (kcal) out.kcal = String(Math.round(kcal));
   return Object.keys(out).length ? out : null;

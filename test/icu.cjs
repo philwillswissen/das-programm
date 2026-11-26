@@ -39,6 +39,13 @@ const today = () => new Date().toISOString().slice(0, 10);
     moving_time: 1800, distance: 1500 });
   ok(schwimm.meta.Tempo.includes("/100 m"), "Schwimmen rechnet je 100 Meter (" + schwimm.meta.Tempo + ")");
 
+  const watt = icu.mapActivity({ id: 11, type: "VirtualRide", name: "MyWhoosh", start_date_local: today() + "T18:00:00",
+    distance: 29150, moving_time: 3629, total_elevation_gain: 40, average_heartrate: 150, calories: 520,
+    icu_average_watts: 143, icu_weighted_avg_watts: 145.4 });
+  ok(watt.meta.NP === "145 W" && watt.meta["Ø Leistung"] === "143 W", "Watt übernommen (NP " + watt.meta.NP + ", Ø " + watt.meta["Ø Leistung"] + ")");
+  ok(watt.meta.Distanz === "29,15 km", "Distanz bleibt gespeichert, die Zahlen-Seite braucht sie");
+  ok(!lauf.meta.NP && !lauf.meta["Ø Leistung"], "ohne Leistungsmesser keine Watt");
+
   const unbekannt = icu.mapActivity({ id: 7, type: "Pickleball", start_date_local: today() + "T10:00:00", moving_time: 3600 });
   ok(unbekannt.sport === "Pickleball", "unbekannte Sportart wird unverändert übernommen");
   const sonst = icu.mapActivity({ id: 8, type: "Other", start_date_local: today() + "T10:00:00", moving_time: 3600 });
@@ -63,6 +70,7 @@ const today = () => new Date().toISOString().slice(0, 10);
     { km: 1.5, sec: 1800, climb: 0, hr: 0, kcal: 0, sport: "Schwimmen" },
     { km: 0, sec: 2400, climb: 0, hr: 0, kcal: 0, sport: "Yoga" },
     { km: 42.2, sec: 12600, climb: 310, hr: 162, kcal: 2800, sport: "" },
+    { km: 29.15, sec: 3629, climb: 40, hr: 150, kcal: 520, np: 145.4, watts: 143, sport: "Indoor-Cycling" },
   ];
   for (const c of cases) {
     const { sport, ...raw } = c;
@@ -71,6 +79,20 @@ const today = () => new Date().toISOString().slice(0, 10);
     ok(inBrowser === inWorker, `${sport || "ohne Sportart"}: beide Wege zeigen dasselbe` +
        (inBrowser === inWorker ? "" : `\n      Browser: ${inBrowser}\n      Worker:  ${inWorker}`));
   }
+
+  // Feed-Karte: mit Watt stehen NP und Ø Leistung groß da, Strecke, Schnitt
+  // und Anstieg verschwinden. Ohne Watt bleibt alles wie gehabt.
+  const card = (raw, sport) => page.evaluate(([r, sp]) => {
+    const box = document.createElement("div");
+    box.innerHTML = metrics(Object.entries(buildMeta(r, sp)));
+    return { big: [...box.querySelectorAll(".mrow span")].map(s => s.textContent), all: box.textContent };
+  }, [raw, sport]);
+  const mitWatt = await card({ km: 29.15, sec: 3629, climb: 40, hr: 150, kcal: 520, np: 145, watts: 143 }, "Indoor-Cycling");
+  ok(mitWatt.big.join() === "NP,Ø Leistung,Dauer", "mit Watt: NP, Ø Leistung, Dauer groß (" + mitWatt.big.join() + ")");
+  ok(!/km|hm/.test(mitWatt.all), "mit Watt: keine Kilometer, kein Anstieg (" + mitWatt.all + ")");
+  ok(mitWatt.all.includes("Puls 150 bpm"), "Puls bleibt klein darunter");
+  const ohneWatt = await card({ km: 29.15, sec: 3629, climb: 40, hr: 150, kcal: 520 }, "Indoor-Cycling");
+  ok(ohneWatt.big.join() === "Distanz,Dauer,Schnitt" && ohneWatt.all.includes("Anstieg 40 hm"), "ohne Watt bleibt die Karte, wie sie war");
   await browser.close();
 
   console.log("\n== Zugangsdaten ==");

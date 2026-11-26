@@ -96,13 +96,15 @@ export function speedOf(sec, km, sport) {
   return ["Tempo", fmtPace(sec, km)];
 }
 
-export function buildMeta({ km = 0, sec = 0, climb = 0, hr = 0, kcal = 0 }, sport) {
+export function buildMeta({ km = 0, sec = 0, climb = 0, hr = 0, kcal = 0, np = 0, watts = 0 }, sport) {
   const out = {};
   if (km > 0.05) out.Distanz = km.toFixed(2).replace(".", ",") + " km";
   if (sec > 30) out.Dauer = fmtDur(sec);
   const sp = speedOf(sec, km, sport);
   if (sp) out[sp[0]] = sp[1];
   if (climb >= 20) out["Anstieg"] = Math.round(climb) + " hm";
+  if (np > 0) out.NP = Math.round(np) + " W";
+  if (watts > 0) out["Ø Leistung"] = Math.round(watts) + " W";
   if (hr) out.Puls = Math.round(hr) + " bpm";
   if (kcal) out.kcal = String(Math.round(kcal));
   return Object.keys(out).length ? out : null;
@@ -118,6 +120,11 @@ export function mapActivity(act) {
     climb: act.total_elevation_gain || 0,
     hr: act.average_heartrate || 0,
     kcal: act.calories || 0,
+    // Normalized Power und Durchschnittsleistung, nur wenn ein Leistungsmesser
+    // dabei war. intervals.icu liefert sie unter eigenem Namen, Strava-Daten
+    // unter dem alten.
+    np: act.icu_weighted_avg_watts || act.weighted_average_watts || 0,
+    watts: act.icu_average_watts || act.average_watts || 0,
   };
   return {
     extId: "icu:" + act.id,
