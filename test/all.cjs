@@ -15,6 +15,7 @@ const suites = [
   ["Push von Ende zu Ende", "test/push-e2e.cjs"],
   ["Motivationsnachrichten", "test/nudge.test.cjs"],
   ["Gemeinsame Einheiten und Vorschläge", "test/social.cjs"],
+  ["Kudos und Kommentare", "test/reactions.cjs"],
   ["Guthaben", "test/bonus.cjs"],
   ["Rangliste", "test/board.cjs"],
   ["Import über intervals.icu", "test/icu.cjs"],
@@ -42,7 +43,7 @@ if (isProduction) {
   // Lokal ist das ein Server auf 127.0.0.1 - ein Worker in der Cloud kommt
   // da nicht hin, deshalb laufen diese Suiten nur lokal.
   const local = host === "127.0.0.1" || host === "localhost";
-  const needsLocalPush = ["push-e2e", "nudge.test", "social", "bonus"];
+  const needsLocalPush = ["push-e2e", "nudge.test", "social", "reactions", "bonus"];
   for (const [name, file] of suites) {
     if (!local && needsLocalPush.some((n) => file.includes(n))) {
       console.log(`\n### ${name}: übersprungen (braucht einen Push-Dienst auf diesem Rechner)`);

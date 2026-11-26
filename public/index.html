@@ -189,6 +189,29 @@ details.more[open] summary::after{content:" \25B4"}
 .post .av{width:34px;height:34px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:0 0 auto}
 .post .act{font-size:16px;margin-top:9px}
 .post button.more-btn{font-size:20px;letter-spacing:1px;line-height:1;color:var(--mut)}
+/* Kudos und Kommentare unter einem Beitrag */
+.social{display:flex;gap:8px;margin-top:11px;padding-top:9px;border-top:1px solid var(--line)}
+.social button{width:auto;flex:0 0 auto;margin:0;padding:6px 12px;min-height:38px;font-size:14px;font-weight:600;
+  background:var(--chip);color:var(--fg);border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.social button.on{background:var(--accsoft);border-color:var(--acc)}
+.social button.on .kn{color:var(--acct)}
+.social button:active{background:var(--line)}
+.social .pop{animation:pop .3s ease-out}
+@keyframes pop{40%{transform:scale(1.12)}}
+.kfrom{font-size:13px;color:var(--mut);margin-top:7px}
+.cmts{margin-top:8px;display:grid;gap:6px}
+.cmt{background:var(--chip);border-radius:12px;padding:7px 11px;font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.cmt .tx{white-space:pre-line}
+.cmt b{font-weight:700;margin-right:5px}
+.cmt .when{font-size:12px;color:var(--mut);margin-left:6px;white-space:nowrap}
+.cmts button.link{justify-self:start;padding:2px 2px;min-height:32px}
+.cmtlist{display:grid;gap:8px;margin:10px 0 6px}
+.cmtlist .cmt{display:flex;gap:8px;align-items:flex-start}
+.cmtlist .cmt>div{flex:1;min-width:0}
+.cmtlist .cmt button.x{margin:-8px -10px -8px 0;font-size:14px}
+.cmtlist .sure{display:flex;gap:8px;margin-top:6px}
+.cmtlist .sure button{width:auto;margin:0;padding:6px 12px;min-height:36px;font-size:14px}
+.cmtlist .sure .warn{background:var(--bad);color:#fff}
 .plan{border:1.5px dashed var(--acc);background:var(--card)}
 .plan .when{font-weight:700}
 .feedbar{display:flex;justify-content:space-between;align-items:center;margin:-4px 0 10px;gap:8px}
@@ -553,6 +576,8 @@ let me = +localStorage.me || 0;
 const device = localStorage.device || (localStorage.device = (crypto.randomUUID ? crypto.randomUUID() : "d" + Date.now() + Math.random().toString(36).slice(2)));
 
 function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2600); }
+// Fehler einer Aktion als Hinweis zeigen statt still zu schlucken.
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
 
 let pinResolve = null;
 function askPin(wrong) {
@@ -603,6 +628,7 @@ async function load() {
     D = await get("state");
     if (me && !D.members.some(m => m.id === me)) { me = 0; localStorage.removeItem("me"); }
     render();
+    if ($("#form")?.classList.contains("on")) paintComments();
     if (!load.offered) { load.offered = true; setTimeout(() => showInstall(), 1000); refreshLocation(); }
     catchUp();
   } catch (e) { $("#app").innerHTML = '<div class="card"><h2>Fehler</h2>' + esc(e.message) + '</div>'; }
@@ -1037,10 +1063,11 @@ function viewFeed() {
     const known = e.group_id && seen.get(e.group_id);
     if (known) {
       known.crew.unshift(e.member_id);
+      known.key = Math.min(known.key, e.id);
       if (e.hasPhoto) { known.hasPhoto = 1; known.photoId = e.id; }  // Foto haengt am Eintrag des Eintragenden
       continue;
     }
-    const post = { ...e, crew: [e.member_id], photoId: e.id };
+    const post = { ...e, crew: [e.member_id], photoId: e.id, key: e.id };
     if (e.group_id) seen.set(e.group_id, post);
     merged.push(post);
   }
@@ -1094,9 +1121,105 @@ function viewFeed() {
       ${e.note ? `<div class="sub" style="margin-top:3px">${esc(e.note)}</div>` : ""}
       ${metrics(meta)}
       ${e.hasPhoto ? `<img class="ph" loading="lazy" data-photo="${e.photoId || e.id}" alt="">` : ""}
+      ${socialBar(e)}
     </div>`;
   }).join("")).join("") + older;
 }
+
+/* ---------- Kudos und Kommentare ---------- */
+// Beides haengt am Beitrag: bei gemeinsamen Einheiten am Eintrag der Person,
+// die eingetragen hat (kleinste id). Der Worker legt es genauso ab.
+const kudosOf = key => (D.kudos || []).filter(k => k.entry_id === key).map(k => k.member_id);
+const commentsOf = key => (D.comments || []).filter(c => c.entry_id === key);
+const nameOfId = id => D.members.find(m => m.id === id)?.name || "?";
+const listNames = names => names.length > 1 ? names.slice(0, -1).join(", ") + " und " + names[names.length - 1] : (names[0] || "");
+function ago(iso) {
+  const t = Date.parse(iso || "");
+  if (!t) return "";
+  const min = Math.round((Date.now() - t) / 60000);
+  if (min < 1) return "gerade";
+  if (min < 60) return `vor ${min} Min.`;
+  if (min < 24 * 60) return `vor ${Math.round(min / 60)} Std.`;
+  return relDay(new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+}
+const cmtHtml = c => `<b>${esc(nameOfId(c.member_id))}</b><span class="tx">${esc(c.text)}</span><span class="when">${esc(ago(c.created))}</span>`;
+function socialBar(e) {
+  const key = e.key || e.id;
+  const ks = kudosOf(key), cs = commentsOf(key);
+  const own = e.crew.includes(me);
+  const given = ks.includes(me);
+  // Kudos gibt es für Sport, nicht für Krankmeldungen - und nicht für die eigene Einheit.
+  const kBtn = e.kind === "sick" || own ? "" :
+    `<button class="kb${given ? " on" : ""}" data-kudos="${key}" onclick="toggleKudos(${key})" aria-pressed="${given}"
+      aria-label="Kudos${ks.length ? ", bisher " + ks.length : ""}">👏 <span class="kn">Kudos${ks.length ? " · " + ks.length : ""}</span></button>`;
+  const cBtn = `<button onclick="openComments(${key})" aria-label="Kommentieren${cs.length ? ", " + cs.length + " Kommentare" : ""}">💬 <span>${cs.length ? "Kommentare · " + cs.length : "Kommentieren"}</span></button>`;
+  const from = ks.length
+    ? `<div class="kfrom">👏 ${given && !own ? (ks.length === 1 ? "Du" : "Du und " + listNames(ks.filter(x => x !== me).map(nameOfId)))
+        : listNames(ks.map(nameOfId))}${own ? (e.crew.length > 1 ? " feiern eure Einheit" : (ks.length === 1 ? " feiert deine Einheit" : " feiern deine Einheit")) : ""}</div>` : "";
+  const last = cs.slice(-2);
+  const cm = cs.length ? `<div class="cmts">${last.map(c => `<div class="cmt">${cmtHtml(c)}</div>`).join("")}
+      ${cs.length > 2 ? `<button class="link" onclick="openComments(${key})">Alle ${cs.length} Kommentare</button>` : ""}</div>` : "";
+  return `<div class="social">${kBtn}${cBtn}</div>${from}${cm}`;
+}
+const toggleKudos = guard(async key => {
+  if (!me) return toast("Erst auswählen, wer du bist (Mehr → Ich und dieses Gerät).");
+  const list = D.kudos || (D.kudos = []);
+  const i = list.findIndex(k => k.entry_id === key && k.member_id === me);
+  const off = i >= 0;
+  if (off) list.splice(i, 1); else list.push({ entry_id: key, member_id: me });
+  render();
+  const btn = document.querySelector(`[data-kudos="${key}"]`);
+  if (btn) { try { btn.focus({ preventScroll: true }); } catch {} if (!off) btn.classList.add("pop"); }
+  try { await api(`entry/${key}/kudos`, "POST", { member_id: me, off, device }); }
+  catch (e) { await load(); throw e; }
+});
+
+// Kommentare im eigenen Fenster: alle lesen, selbst schreiben, eigene löschen.
+let commentsFor = null, cmtAsk = null;
+function openComments(key) {
+  const e = D.entries.find(x => x.id === key);
+  if (!e) return toast("Eintrag nicht gefunden.");
+  commentsFor = key; cmtAsk = null;
+  const crew = e.group_id ? D.entries.filter(x => x.group_id === e.group_id).map(x => x.member_id) : [e.member_id];
+  const was = e.kind === "sick" ? "Krankmeldung" : (e.sport || "Sporteinheit");
+  openSheet(`<h3>${e.kind === "sick" ? "🤒" : sportIcon(e.sport)} ${esc(was)}</h3>
+    <div class="sub">${esc(listNames(crew.map(nameOfId)))} · ${relDay(e.date)}</div>
+    <div class="cmtlist" id="cmtList"></div>
+    ${me ? `<label for="cmtText">Dein Kommentar</label>
+      <textarea id="cmtText" maxlength="500" placeholder="${e.kind === "sick" ? "Gute Besserung!" : "Stark! 💪"}"></textarea>
+      <button id="cmtSend" onclick="sendComment()">Senden</button>`
+      : `<div class="sub" style="margin:10px 0">Zum Kommentieren erst auswählen, wer du bist (Mehr → Ich und dieses Gerät).</div>`}
+    <button class="ghost" onclick="closeSheet()">Schließen</button>`);
+  paintComments();
+  setTimeout(() => $("#cmtText")?.focus(), 350);
+}
+function paintComments() {
+  const box = $("#cmtList");
+  if (!box || commentsFor == null) return;
+  const cs = commentsOf(commentsFor);
+  box.innerHTML = cs.length ? cs.map(c => `<div class="cmt"><div>${cmtHtml(c)}
+      ${cmtAsk === c.id ? `<div class="sure"><button class="warn" onclick="delComment(${c.id})">Löschen</button>
+        <button class="ghost" onclick="cmtAsk=null;paintComments()">Behalten</button></div>` : ""}</div>
+      ${c.member_id === me && cmtAsk !== c.id ? `<button class="x" onclick="cmtAsk=${c.id};paintComments()" title="Kommentar löschen" aria-label="Kommentar löschen">✕</button>` : ""}</div>`).join("")
+    : `<div class="sub">Noch keine Kommentare. Sag als Erstes was dazu.</div>`;
+}
+const sendComment = guard(async () => {
+  const field = $("#cmtText"), btn = $("#cmtSend");
+  const text = (field?.value || "").trim();
+  if (!text) return field?.focus();
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api(`entry/${commentsFor}/comment`, "POST", { member_id: me, text, device }).then(r => r.json());
+    (D.comments || (D.comments = [])).push({ id: r.id, entry_id: r.entry_id, member_id: me, text, created: new Date().toISOString() });
+    field.value = "";
+    paintComments(); render();
+  } finally { if (btn) btn.disabled = false; }
+});
+const delComment = guard(async id => {
+  await api("comment/" + id, "DELETE");
+  D.comments = (D.comments || []).filter(c => c.id !== id);
+  cmtAsk = null; paintComments(); render();
+});
 
 // Messwerte: die drei wichtigsten groß, der Rest klein darunter. Die Werte
 // selbst kommen unverändert aus der Datei bzw. von intervals.icu.
@@ -1195,7 +1318,6 @@ function planCards() {
   return form + list;
 }
 
-const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
 const savePlan = guard(async () => {
   if (!me) return toast("Erst auswählen, wer du bist (Mehr → Ich und dieses Gerät).");
   const date = $("#pDate").value || todayISO();

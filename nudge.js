@@ -320,3 +320,52 @@ export function behindHint({ dow, required, credit, recipientId, authorId }) {
   if (left === 1) return " Dir fehlt noch eine.";
   return ` Dir fehlen noch ${left}.`;
 }
+
+/* ---------- Kudos und Kommentare ---------- */
+
+// "Anna", "Anna und Ben", "Anna, Ben und Chris", "Anna, Ben und 3 weitere"
+export function nameList(names, max = 3) {
+  const list = names.filter(Boolean);
+  if (list.length <= 1) return list[0] || "";
+  if (list.length > max) return `${list.slice(0, max - 1).join(", ")} und ${list.length - max + 1} weitere`;
+  return `${list.slice(0, -1).join(", ")} und ${list[list.length - 1]}`;
+}
+
+// Genitiv eines Namens: "Bens", aber "Chris’" und "Max’"
+const genitive = (name) => (/[sßxz]$/i.test(name) ? name + "’" : name + "s");
+
+/**
+ * Push an die Leute hinter einem Eintrag, wenn jemand Kudos gibt.
+ * Alle Kudos zu einem Eintrag landen unter demselben Tag, die Meldung
+ * nennt deshalb immer alle, die bisher Kudos gegeben haben.
+ *
+ * @param givers  Namen, neuester zuerst
+ * @param crew    wie viele hinter dem Eintrag stehen
+ */
+export function kudosMessage({ givers, sport, kind, crew = 1 }) {
+  const wer = nameList(givers);
+  const viele = givers.length > 1;
+  const wem = crew > 1 ? "euch" : "dir";
+  const wofuer = kind === "sick" ? "" : ` für ${sport || (crew > 1 ? "eure Einheit" : "deine Einheit")}`;
+  return `${wer} ${viele ? "geben" : "gibt"} ${wem} Kudos${wofuer} 👏`;
+}
+
+/**
+ * Push zu einem neuen Kommentar. Der Titel sagt, wer zu welchem Eintrag
+ * schreibt, der Text ist der Kommentar selbst.
+ *
+ * @param mine    gehört der Eintrag dem Empfänger (oder war er dabei)?
+ * @param author  Name der Person, die den Eintrag gemacht hat
+ */
+export function commentMessage({ who, text, sport, kind, crew = 1, mine = false, author = "" }) {
+  const was = kind === "sick" ? "Krankmeldung" : "Einheit";
+  const wessen = mine ? (crew > 1 ? "eurer" : "deiner") : author ? genitive(author) : "einer";
+  const zusatz = kind === "sick" || !sport ? "" : ` (${sport})`;
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  // Antwortet die Person selbst, die eingetragen hat, waere "Ben zu Bens Einheit" holprig.
+  const head = who === author && !mine ? `💬 ${who} antwortet${zusatz}` : `💬 ${who} zu ${wessen} ${was}${zusatz}`;
+  return {
+    title: head,
+    body: t.length > 140 ? t.slice(0, 139) + "…" : t,
+  };
+}
