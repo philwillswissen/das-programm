@@ -860,7 +860,10 @@ async function syncMember(env, db, memberId, ctx) {
       .bind(member.id, m.date, "workout", m.sport || null, m.note || "",
             m.meta ? JSON.stringify(m.meta) : null, new Date().toISOString(), m.extId)
       .run();
-    if (!res.meta?.changes) continue;          // kannten wir schon
+    if (!res.meta?.changes) {                  // kannten wir schon
+      await addPower(db, m);
+      continue;
+    }
 
     added.push({ member: member.name, sport: m.sport, date: m.date, minutes: m.minutes });
     const sending = notify(env, db,
@@ -869,6 +872,22 @@ async function syncMember(env, db, memberId, ctx) {
     if (ctx) ctx.waitUntil(sending); else await sending;
   }
   return added;
+}
+
+// Wattwerte kamen erst spaeter dazu. Bei schon importierten Einheiten werden
+// sie nachgetragen, alle anderen Werte bleiben, wie sie sind - auch von Hand
+// geaenderte.
+async function addPower(db, m) {
+  const add = {};
+  if (m.meta?.NP) add.NP = m.meta.NP;
+  if (m.meta?.["Ø Leistung"]) add["Ø Leistung"] = m.meta["Ø Leistung"];
+  if (!Object.keys(add).length) return;
+  const row = await db.prepare("SELECT id, meta FROM entries WHERE ext_id=?").bind(m.extId).first();
+  if (!row) return;
+  let meta = {};
+  try { meta = row.meta ? JSON.parse(row.meta) : {}; } catch { return; }
+  if (!meta || typeof meta !== "object" || meta.NP || meta["Ø Leistung"]) return;
+  await db.prepare("UPDATE entries SET meta=? WHERE id=?").bind(JSON.stringify({ ...meta, ...add }), row.id).run();
 }
 
 // Mindestabstand zwischen zwei Anfragen an intervals.icu je Person. Der Cron
