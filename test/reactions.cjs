@@ -78,9 +78,13 @@ const today = () => new Date().toISOString().slice(0, 10);
   let r = await api(`entry/${lauf}/kudos`, "POST", { member_id: anna, device: "d-anna" });
   ok(r.status === 200 && r.data.on, "Anna gibt Ben Kudos");
   await sleep(1200);
-  ok(received.length === 1 && received[0].path === "/ben", "nur Ben bekommt eine Benachrichtigung (" + received.map((x) => x.path).join(",") + ")");
+  ok(received.map((x) => x.path).sort().join() === "/ben,/chris,/dani",
+    "standardmäßig erfährt die ganze Gruppe davon, nur Anna selbst nicht (" + received.map((x) => x.path).join(",") + ")");
   let msg = (await got("ben", dev.ben))[0];
-  ok(msg && msg.body === "Anna gibt dir Kudos für Laufen 👏", "„" + msg?.body + "“");
+  ok(msg && msg.body === "Anna gibt dir Kudos für Laufen 👏", "an Ben: „" + msg?.body + "“");
+  msg = (await got("chris", dev.chris))[0];
+  ok(msg && msg.body === "Anna gibt Ben Kudos für Laufen 👏", "an die anderen: „" + msg?.body + "“");
+  msg = (await got("ben", dev.ben))[0];
   ok(msg && msg.tag === "kudos-" + lauf, "Kudos zu einem Eintrag landen unter einem Tag");
 
   r = await api(`entry/${lauf}/kudos`, "POST", { member_id: ben, device: "d-ben" });
@@ -99,8 +103,20 @@ const today = () => new Date().toISOString().slice(0, 10);
   st = (await api("state")).data;
   ok(st.kudos.filter((k) => k.entry_id === lauf && k.member_id === anna).length === 1, "doppelt drücken zählt einmal");
 
+  console.log("\n== Einstellungen ==");
+  r = await api(`member/${dani}/prefs`, "POST", { kudos: "laut" });
+  ok(r.status === 400, "unbekannte Werte werden abgelehnt");
+  r = await api(`member/${dani}/prefs`, "POST", { kudos: "off", comments: "mine" });
+  ok(r.status === 200, "Dani will keine Kudos-Pushes und Kommentare nur zu eigenen Sachen");
+  st = (await api("state")).data;
+  const d = st.members.find((x) => x.id === dani);
+  ok(d.push_kudos === "off" && d.push_comments === "mine", "die Einstellung steht im Zustand");
+  ok(st.members.find((x) => x.id === ben).push_kudos === null, "wer nichts einstellt, hat den Standard");
+
+  received.length = 0;
   await api(`entry/${lauf}/kudos`, "POST", { member_id: chris, device: "d-chris" });
   await sleep(1200);
+  ok(received.map((x) => x.path).sort().join() === "/anna,/ben", "Dani bekommt keine Kudos mehr mit, die anderen schon");
   msg = (await got("ben", dev.ben))[0];
   ok(msg && msg.body === "Chris und Anna geben dir Kudos für Laufen 👏", "die Meldung nennt alle: „" + msg?.body + "“");
 
@@ -111,7 +127,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   r = await api(`entry/${lauf}/comment`, "POST", { member_id: chris, text: "Stark,  wie schnell?\nRespekt!", device: "d-chris" });
   ok(r.status === 200 && r.data.id, "Chris kommentiert");
   await sleep(1200);
-  ok(received.length === 1 && received[0].path === "/ben", "nur der Autor erfährt vom ersten Kommentar");
+  ok(received.map((x) => x.path).sort().join() === "/anna,/ben", "Ben und Anna erfahren davon, Dani („nur meine“) nicht");
   msg = (await got("ben", dev.ben))[0];
   ok(msg && msg.title === "💬 Chris zu deiner Einheit (Laufen)", "Titel: „" + msg?.title + "“");
   ok(msg && msg.body === "Stark, wie schnell? Respekt!", "der Kommentar ist der Text, auf eine Zeile gebracht");
@@ -119,7 +135,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   received.length = 0;
   await api(`entry/${lauf}/comment`, "POST", { member_id: ben, text: "Danke! 5:10er Schnitt", device: "d-ben" });
   await sleep(1200);
-  ok(received.map((x) => x.path).join() === "/chris", "die Antwort des Autors geht an alle, die mitreden");
+  ok(received.map((x) => x.path).sort().join() === "/anna,/chris", "die Antwort geht an alle außer Dani");
   msg = (await got("chris", dev.chris))[0];
   ok(msg && msg.title === "💬 Ben antwortet (Laufen)", "Titel für Mitredende: „" + msg?.title + "“");
 
@@ -127,6 +143,14 @@ const today = () => new Date().toISOString().slice(0, 10);
   await api(`entry/${lauf}/comment`, "POST", { member_id: anna, text: "👏", device: "d-anna" });
   await sleep(1200);
   ok(received.map((x) => x.path).sort().join() === "/ben,/chris", "Anna: Ben und Chris werden benachrichtigt, Dani nicht");
+  await api(`member/${ben}/prefs`, "POST", { comments: "off" });
+  received.length = 0;
+  await api(`entry/${lauf}/comment`, "POST", { member_id: chris, text: "Sonntag zusammen?", device: "d-chris" });
+  await sleep(1200);
+  ok(received.map((x) => x.path).sort().join() === "/anna", "wer Kommentare ausschaltet, bekommt auch zum eigenen Eintrag keine");
+  await api(`member/${ben}/prefs`, "POST", { comments: "all" });
+  const extra = (await api("state")).data.comments.filter((c) => c.text === "Sonntag zusammen?");
+  for (const c of extra) await api("comment/" + c.id, "DELETE");
 
   st = (await api("state")).data;
   const cs = st.comments.filter((c) => c.entry_id === lauf);
@@ -164,6 +188,9 @@ const today = () => new Date().toISOString().slice(0, 10);
   await sleep(1200);
   msg = (await got("chris", dev.chris))[0];
   ok(msg && msg.title === "💬 Anna zu deiner Krankmeldung", "„" + msg?.title + "“");
+  ok(!received.some((x) => x.path === "/dani"), "Dani redet hier nicht mit und bekommt nichts");
+  msg = (await got("ben", dev.ben))[0];
+  ok(msg && msg.title === "💬 Anna zu Chris’ Krankmeldung", "an die anderen: „" + msg?.title + "“");
 
   console.log("\n== Aufräumen ==");
   await api("entry/" + grp[1].id, "DELETE");
@@ -220,12 +247,21 @@ const today = () => new Date().toISOString().slice(0, 10);
   await page.click('#cmtList .sure button:has-text("Löschen")');
   await page.waitForFunction(() => document.querySelectorAll("#cmtList .cmt").length === 1);
   ok(true, "Löschen fragt im Fenster nach und entfernt den Kommentar");
-  ok(dialogs === 0, "kein nativer Dialog (" + dialogs + ")");
-  ok(!errors.length, "keine Fehler im Browser" + (errors.length ? ": " + errors.join(" | ") : ""));
-  await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/kommentare.png" : "/dev/null" }).catch(() => {});
   await page.click('#form button:has-text("Schließen")');
   await sleep(400);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/feed-kudos.png" });
+  await page.goto(BASE + "/#set/ich", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#pref-kudos", { timeout: 15000 });
+  ok((await page.inputValue("#pref-kudos")) === "off" && (await page.inputValue("#pref-comments")) === "mine",
+    "unter „Ich und dieses Gerät“ steht Danis Einstellung");
+  await page.selectOption("#pref-kudos", "mine");
+  await sleep(800);
+  ok((await api("state")).data.members.find((x) => x.id === dani).push_kudos === "mine", "umstellen speichert sofort");
+  if (process.env.SHOT_DIR) { await page.locator('.card:has(h2:has-text("Benachrichtigungen"))').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: process.env.SHOT_DIR + "/einstellungen.png" }); }
+  ok(dialogs === 0, "kein nativer Dialog (" + dialogs + ")");
+  ok(!errors.length, "keine Fehler im Browser" + (errors.length ? ": " + errors.join(" | ") : ""));
+  await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/kommentare.png" : "/dev/null" }).catch(() => {});
   await browser.close();
 
   server.close();

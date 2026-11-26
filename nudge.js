@@ -335,18 +335,23 @@ export function nameList(names, max = 3) {
 const genitive = (name) => (/[sßxz]$/i.test(name) ? name + "’" : name + "s");
 
 /**
- * Push an die Leute hinter einem Eintrag, wenn jemand Kudos gibt.
+ * Push, wenn jemand Kudos gibt - an die Leute hinter dem Eintrag und,
+ * je nach Einstellung, an den Rest der Gruppe.
  * Alle Kudos zu einem Eintrag landen unter demselben Tag, die Meldung
  * nennt deshalb immer alle, die bisher Kudos gegeben haben.
  *
  * @param givers  Namen, neuester zuerst
  * @param crew    wie viele hinter dem Eintrag stehen
+ * @param mine    steht der Empfänger selbst hinter dem Eintrag?
+ * @param owners  Namen der Leute hinter dem Eintrag (für alle anderen)
  */
-export function kudosMessage({ givers, sport, kind, crew = 1 }) {
+export function kudosMessage({ givers, sport, kind, crew = 1, mine = true, owners = [] }) {
   const wer = nameList(givers);
   const viele = givers.length > 1;
-  const wem = crew > 1 ? "euch" : "dir";
-  const wofuer = kind === "sick" ? "" : ` für ${sport || (crew > 1 ? "eure Einheit" : "deine Einheit")}`;
+  // Wer nicht dabei war, liest, wem die Kudos gelten.
+  const wem = mine ? (crew > 1 ? "euch" : "dir") : nameList(owners, 4) || "jemandem";
+  const eigen = mine ? (crew > 1 ? "eure Einheit" : "deine Einheit") : "die Einheit";
+  const wofuer = kind === "sick" ? "" : ` für ${sport || eigen}`;
   return `${wer} ${viele ? "geben" : "gibt"} ${wem} Kudos${wofuer} 👏`;
 }
 

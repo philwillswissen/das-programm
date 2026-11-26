@@ -1712,6 +1712,7 @@ function viewSetMe() {
          ${pushState ? '<button class="ghost" onclick="testPush()">Testbenachrichtigung senden</button>' : ""}
          ${ios && !standalone ? '<div class="hint">iPhone/iPad: Die App muss erst über „Teilen → Zum Home-Bildschirm" installiert und von dort geöffnet werden, sonst erlaubt iOS kein Push.</div>' : ""}
          <div class="hint">Du bekommst eine Nachricht, wenn jemand anderes einen Eintrag macht – nicht für deine eigenen Einträge von diesem Gerät.</div>`}
+    ${me && canPush && D.vapidPublicKey ? pushPrefs() : ""}
   </div>
 
   <div class="card"><h2>Automatisch eintragen</h2>
@@ -1746,6 +1747,27 @@ function viewSetMe() {
     <div class="hint">Ohne Freigabe rechnet die App mit ${esc(s.place)}. Gibst du den Standort frei,
       stimmt der Hinweis auch unterwegs – einmal reicht, grob genügt völlig.</div></div>` : ""}`;
 }
+
+// Pushes zu Kudos und Kommentaren: gelten für die Person, also auf all ihren Geräten.
+const PREF_TEXT = {
+  kudos: [["all", "Alle in der Gruppe"], ["mine", "Nur für meine Einheiten"], ["off", "Keine"]],
+  comments: [["all", "Alle in der Gruppe"], ["mine", "Nur meine und wo ich mitrede"], ["off", "Keine"]],
+};
+function pushPrefs() {
+  const m = D.members.find(x => x.id === me) || {};
+  const sel = (key, col, label) => `<label for="pref-${key}">${label}</label>
+    <select id="pref-${key}" onchange="setPushPref('${key}', this.value)">
+      ${PREF_TEXT[key].map(([v, t]) => `<option value="${v}"${(m[col] || "all") === v ? " selected" : ""}>${t}</option>`).join("")}</select>`;
+  return sel("kudos", "push_kudos", "👏 Kudos") + sel("comments", "push_comments", "💬 Kommentare") +
+    `<div class="hint">„Nur meine“ heißt: Kudos und Kommentare zu deinen eigenen Einträgen, bei Kommentaren auch dort,
+      wo du selbst mitgeschrieben hast. Gilt auf allen deinen Geräten. Was du selbst gibst oder schreibst, meldet dir die App nie.</div>`;
+}
+const setPushPref = guard(async (key, value) => {
+  await api(`member/${me}/prefs`, "POST", { [key]: value });
+  const m = D.members.find(x => x.id === me);
+  if (m) m[key === "kudos" ? "push_kudos" : "push_comments"] = value;
+  toast("Gespeichert.");
+});
 
 // Ausgabe buchen: dieselben Felder auf der Kassen-Seite und im Fenster von der Startseite.
 const expenseFields = () => `

@@ -106,6 +106,9 @@ const ALTERS = [
   "ALTER TABLE expenses ADD COLUMN member_id INTEGER",
   "ALTER TABLE members ADD COLUMN lat REAL",
   "ALTER TABLE members ADD COLUMN lon REAL",
+  // Wer welche Pushes zu Kudos und Kommentaren will: all, mine oder off (leer = all)
+  "ALTER TABLE members ADD COLUMN push_kudos TEXT",
+  "ALTER TABLE members ADD COLUMN push_comments TEXT",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext_id) WHERE ext_id IS NOT NULL",
 ];
 
@@ -225,6 +228,20 @@ async function postOf(db, entryId) {
            kind: row.kind, sport: row.sport };
 }
 
+// Wer zu Kudos oder Kommentaren einen Push bekommt. Standard: die ganze
+// Gruppe. Jeder kann es fuer sich auf "nur meine Eintraege" oder "aus" stellen.
+// involved: Personen, die es direkt betrifft (Eintrag, beim Kommentar auch wer mitredet)
+const PUSH_PREFS = ["all", "mine", "off"];
+async function audience(db, column, actorId, involved) {
+  const { results } = await db.prepare(`SELECT id,${column} AS pref FROM members WHERE id != ?`).bind(actorId).all();
+  return results
+    .filter((m) => {
+      const pref = PUSH_PREFS.includes(m.pref) ? m.pref : "all";
+      return pref === "all" || (pref === "mine" && involved.includes(m.id));
+    })
+    .map((m) => m.id);
+}
+
 // Push an bestimmte Personen - an alle ihre Geraete, ausser dem, von dem es kam.
 async function pushTo(env, db, memberIds, fromDevice, payload) {
   if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE || !memberIds.length) return 0;
@@ -309,7 +326,7 @@ export default {
         const all = (sql) => db.prepare(sql).all().then((r) => r.results);
         const settings = await loadSettings(db);
         const [members, entries, expenses, plans, joins, events, links, kudos, comments] = await Promise.all([
-          all("SELECT id,name,joined,(lat IS NOT NULL) AS hasGeo FROM members ORDER BY id"),
+          all("SELECT id,name,joined,(lat IS NOT NULL) AS hasGeo,push_kudos,push_comments FROM members ORDER BY id"),
           all(
             "SELECT id,member_id,date,kind,units,sport,note,meta,created,group_id,(photo IS NOT NULL) AS hasPhoto FROM entries ORDER BY date DESC, id DESC"
           ),
@@ -464,6 +481,20 @@ export default {
           .bind(name, isDate(body.joined) ? body.joined : today())
           .run();
         return json({ ok: true, id: res.meta?.last_row_id });
+      }
+
+      // Welche Pushes zu Kudos und Kommentaren jemand bekommen will
+      if ((m = path.match(/^\/api\/member\/(\d+)\/prefs$/)) && method === "POST") {
+        const sets = [], vals = [];
+        for (const [key, col] of [["kudos", "push_kudos"], ["comments", "push_comments"]]) {
+          if (!(key in body)) continue;
+          if (!PUSH_PREFS.includes(body[key])) return json({ error: "Unbekannte Einstellung." }, 400);
+          sets.push(`${col}=?`); vals.push(body[key]);
+        }
+        if (!sets.length) return json({ error: "Nichts zu ändern." }, 400);
+        const res = await db.prepare(`UPDATE members SET ${sets.join(",")} WHERE id=?`).bind(...vals, m[1]).run();
+        if (!res.meta?.changes) return json({ error: "Teilnehmer unbekannt." }, 404);
+        return json({ ok: true });
       }
 
       // --- Ausgaben ---
@@ -635,10 +666,17 @@ export default {
           const { results: all } = await db
             .prepare("SELECT m.name FROM kudos k JOIN members m ON m.id=k.member_id WHERE k.entry_id=? ORDER BY k.created DESC")
             .bind(post.key).all();
-          const body2 = kudosMessage({ givers: all.map((r) => r.name), sport: post.sport, kind: post.kind, crew: post.crew.length });
-          ctx.waitUntil(pushTo(env, db, post.crew, clean(body.device, 64),
-            () => ({ title: "Das Programm", body: body2, tag: "kudos-" + post.key, url: "/#feed" }))
-            .catch((e) => console.log("kudos push failed", String(e))));
+          const givers = all.map((r) => r.name);
+          const { results: crewRows } = await db
+            .prepare(`SELECT id,name FROM members WHERE id IN (${post.crew.map(() => "?").join(",")})`).bind(...post.crew).all();
+          const owners = post.crew.map((id) => crewRows.find((r) => r.id === id)?.name).filter(Boolean);
+          const to = await audience(db, "push_kudos", memberId, post.crew);
+          ctx.waitUntil(pushTo(env, db, to, clean(body.device, 64), (rid) => ({
+            title: "Das Programm",
+            body: kudosMessage({ givers, sport: post.sport, kind: post.kind, crew: post.crew.length,
+              mine: post.crew.includes(rid), owners }),
+            tag: "kudos-" + post.key, url: "/#feed",
+          })).catch((e) => console.log("kudos push failed", String(e))));
         }
         return json({ ok: true, entry_id: post.key, on: true });
       }
@@ -658,7 +696,8 @@ export default {
 
         // Wer den Eintrag gemacht hat und wer schon mitredet, erfaehrt davon.
         const { results: talkers } = await db.prepare("SELECT DISTINCT member_id FROM comments WHERE entry_id=?").bind(post.key).all();
-        const to = [...new Set([...post.crew, ...talkers.map((t) => t.member_id)])].filter((x) => x !== memberId);
+        const involved = [...new Set([...post.crew, ...talkers.map((t) => t.member_id)])];
+        const to = await audience(db, "push_comments", memberId, involved);
         const author = await db.prepare("SELECT name FROM members WHERE id=?").bind(post.author).first();
         ctx.waitUntil(pushTo(env, db, to, clean(body.device, 64), (rid) => ({
           ...commentMessage({ who: writer.name, text, sport: post.sport, kind: post.kind, crew: post.crew.length,
