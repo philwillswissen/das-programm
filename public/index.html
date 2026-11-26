@@ -853,7 +853,6 @@ const loadReport = async () => {
 };
 
 const nf = n => Number(n).toLocaleString("de-DE");
-const hours = h => (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10).toLocaleString("de-DE");
 const seriesColor = i => "var(--s" + ((i % 8) + 1) + ")";
 
 // Säulen: eine Reihe, Zahl über der Säule, gestrichelte Ziellinie.
@@ -948,17 +947,30 @@ function viewStats() {
     ? `<div class="card"><h2>Wer bist du?</h2><div class="sub">Unter Mehr → Ich und dieses Gerät oder auf der Startseite einmal auswählen, dann stehen hier deine Zahlen.</div></div>`
     : "";
 
+  // Nur Kennzahlen, die jeder Eintrag hat - Dauer und Strecke sind freiwillig,
+  // Summen daraus wären bei jedem Eintrag ohne Messwerte zu klein.
   const tiles = `<div class="card"><h2>${esc(title)} · seit ${d.first ? dm(d.first) : "Beginn"}</h2>
     <div class="tiles">
       <div class="tile"><b>${nf(d.sessions)}</b><span>Einheiten</span></div>
-      <div class="tile"><b>${hours(d.hours)}</b><span>Stunden</span></div>
-      <div class="tile"><b>${nf(d.km >= 100 ? Math.round(d.km) : d.km)}</b><span>Kilometer</span></div>
-      <div class="tile"><b>${nf(d.climb)}</b><span>Höhenmeter</span></div>
+      <div class="tile"><b>${nf(d.sportCount)}</b><span>${d.sportCount === 1 ? "Sportart" : "Sportarten"}</span></div>
+      <div class="tile"><b>${nf(d.together)}</b><span>gemeinsam</span></div>
+      <div class="tile"><b>${nf(d.activeDays)}</b><span>aktive Tage</span></div>
     </div>
-    <div class="hint">${d.withData < d.sessions
-      ? `${d.sessions - d.withData} Einträge ohne Messwerte – die zählen als Einheit, aber nicht in Stunden und Kilometern.`
-      : "Alle Einträge haben Messwerte."}${d.avgMinutes ? ` Im Schnitt ${d.avgMinutes} Minuten je Einheit.` : ""}${
-        d.avgHr ? ` Durchschnittspuls ${d.avgHr}.` : ""}</div></div>`;
+    <div class="hint">${mine
+      ? "Gemeinsam: Einheiten, die du mit anderen aus der Gruppe gemacht hast."
+      : "Gemeinsam: Einheiten, bei denen mehrere aus der Gruppe dabei waren – zählt einmal, egal wie viele."}</div></div>`;
+
+  const nameOf = id => people.find(p => p.id === id)?.name || "";
+  const dur = s => s >= 3600 ? Math.floor(s / 3600) + ":" + String(Math.round(s % 3600 / 60)).padStart(2, "0") + " h" : Math.round(s / 60) + " min";
+  const wer = x => [mine ? "" : nameOf(x.member_id), x.sport, dm(x.date)].filter(Boolean).map(esc).join(" · ");
+  const marken = [
+    d.longestKm && [ "Längste Strecke", nf(d.longestKm.value) + " km", wer(d.longestKm) ],
+    d.longestTime && [ "Längste Einheit", dur(d.longestTime.value), wer(d.longestTime) ],
+    d.bestWeek && [ "Stärkste Woche", d.bestWeek.units + " " + (d.bestWeek.units === 1 ? "Einheit" : "Einheiten"), "ab " + dm(d.bestWeek.week) ],
+  ].filter(Boolean);
+  const bestmarken = marken.length ? `<div class="card"><h2>Bestmarken</h2><table>
+    ${marken.map(([k, v, w]) => `<tr><td>${k}</td><td><b>${v}</b><div class="sub">${w}</div></td></tr>`).join("")}
+    </table>${d.longestKm || d.longestTime ? `<div class="hint">Strecke und Dauer nur aus Einträgen, bei denen sie eingetragen sind.</div>` : ""}</div>` : "";
 
   const verlauf = `<div class="card"><h2>Einheiten je Woche</h2>
     ${mine ? colBars(asWeeks(d.weeks), R.required) : stackBars(R.team.stacked, people, teamGoals(R.team.stacked))}
@@ -981,10 +993,9 @@ function viewStats() {
     ${rowBars(d.sports.map(sp => ({
       label: sportIcon(sp.sport) + " " + sp.sport,
       value: sp.count,
-      right: sp.count + "×" + (sp.secs > 60 ? " · " + hours(sp.secs / 3600) + " h" : ""),
-      tip: sp.sport + ": " + sp.count + " Einheiten"
-        + (sp.secs > 60 ? ", " + hours(sp.secs / 3600) + " Stunden" : "")
-        + (sp.km > 0.5 ? ", " + nf(Math.round(sp.km)) + " km" : ""),
+      right: sp.count + "×",
+      tip: sp.sport + ": " + sp.count + " " + (sp.count === 1 ? "Einheit" : "Einheiten")
+        + (mine ? "" : " · " + sp.people + " " + (sp.people === 1 ? "Person" : "Personen")),
     })))}
     ${d.moreSports ? `<div class="hint">und ${d.moreSports} weitere</div>` : ""}</div>` : "";
 
@@ -1003,20 +1014,17 @@ function viewStats() {
       label: p.name,
       value: p.sessions,
       color: seriesColor(people.findIndex(x => x.id === p.id)),
-      right: p.sessions + "×" + (p.hours ? " · " + hours(p.hours) + " h" : ""),
-      tip: p.name + ": " + p.sessions + " Einheiten" + (p.hours ? ", " + hours(p.hours) + " Stunden" : "")
-        + (p.km ? ", " + nf(Math.round(p.km)) + " km" : ""),
+      right: p.sessions + "×",
+      tip: p.name + ": " + p.sessions + " Einheiten · " + p.sportCount + " " + (p.sportCount === 1 ? "Sportart" : "Sportarten"),
     })))}
-    ${R.team.together ? `<div class="hint">${R.team.together} Einheiten habt ihr zusammen gemacht.</div>` : ""}</div>` : "";
+    </div>` : "";
 
   const tabelle = `<div class="card"><h2>Als Tabelle</h2><table>
-    <tr><th>Sportart</th><th>Einheiten</th><th>Stunden</th><th>km</th></tr>
-    ${d.sports.map(sp => `<tr><td>${esc(sp.sport)}</td><td>${sp.count}</td>
-      <td>${sp.secs > 60 ? hours(sp.secs / 3600) : "–"}</td>
-      <td>${sp.km > 0.5 ? nf(Math.round(sp.km)) : "–"}</td></tr>`).join("")}
+    <tr><th>Sportart</th><th>Einheiten</th>${mine ? "" : "<th>Personen</th>"}</tr>
+    ${d.sports.map(sp => `<tr><td>${esc(sp.sport)}</td><td>${sp.count}</td>${mine ? "" : `<td>${sp.people}</td>`}</tr>`).join("")}
   </table></div>`;
 
-  return toggle + noMe + (statsWho === "me" && !me ? "" : tiles + verlauf + sportarten + tage + leute + tabelle);
+  return toggle + noMe + (statsWho === "me" && !me ? "" : tiles + bestmarken + verlauf + sportarten + tage + leute + tabelle);
 }
 
 /* ---------- Feed ---------- */
